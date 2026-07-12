@@ -1,5 +1,6 @@
 import cv2
 
+from core.config import FOV_SIZE
 from core.capture import ScreenCapture
 from core.detector import YoloDetector
 from core.mouse import MouseController
@@ -12,7 +13,7 @@ def main() -> None:
     targeting = TargetingSystem()
     mouse = MouseController()
 
-    fov_center = targeting.fov_size // 2
+    fov_center = FOV_SIZE // 2
     window_name = "CV-Tracker"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window_name, 1000, 1000) # Affiche la fenêtre en 800x800

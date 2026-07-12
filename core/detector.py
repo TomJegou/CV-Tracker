@@ -63,11 +63,12 @@ class YoloDetector:
 
 if __name__ == "__main__":
     from core.capture import ScreenCapture
+    from core.config import FOV_SIZE
 
     capture = ScreenCapture()
     detector = YoloDetector()
 
-    print(f"FOV 400x400 centré — région: {capture.region}")
+    print(f"FOV {FOV_SIZE}x{FOV_SIZE} centré — région: {capture.region}")
     print("Appuyez sur 'q' dans la fenêtre Debug pour quitter.")
 
     window_name = "Debug"

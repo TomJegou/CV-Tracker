@@ -1,8 +1,10 @@
 import math
 
+from core.config import FOV_SIZE
+
 
 class TargetingSystem:
-    def __init__(self, fov_size: int = 400):
+    def __init__(self, fov_size: int = FOV_SIZE):
         self.fov_size = fov_size
         self._center = fov_size // 2
 

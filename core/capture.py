@@ -4,11 +4,12 @@ import cv2
 import dxcam
 import numpy as np
 
+from core.config import FOV_SIZE
+
 
 class ScreenCapture:
-    FOV_SIZE = 400
-
-    def __init__(self, output_idx: int = 0):
+    def __init__(self, output_idx: int = 0, fov_size: int = FOV_SIZE):
+        self.fov_size = fov_size
         self._camera = dxcam.create(
             output_idx=output_idx,
             output_color="BGR",
@@ -19,7 +20,7 @@ class ScreenCapture:
         screen_width = self._camera.width
         screen_height = self._camera.height
 
-        half = self.FOV_SIZE // 2
+        half = self.fov_size // 2
         center_x = screen_width // 2
         center_y = screen_height // 2
 
@@ -40,7 +41,7 @@ class ScreenCapture:
 
 if __name__ == "__main__":
     capture = ScreenCapture()
-    print(f"FOV 400x400 centré — région: {capture.region}")
+    print(f"FOV {FOV_SIZE}x{FOV_SIZE} centré — région: {capture.region}")
     print("Appuyez sur 'q' dans la fenêtre Debug pour quitter.")
 
     window_name = "Debug"
