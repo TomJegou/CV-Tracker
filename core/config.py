@@ -1,1 +1,2 @@
 FOV_SIZE = 416
+DEBUG = True

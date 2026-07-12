@@ -1,6 +1,6 @@
 import cv2
 
-from core.config import FOV_SIZE
+from core.config import DEBUG, FOV_SIZE
 from core.capture import ScreenCapture
 from core.detector import YoloDetector
 from core.mouse import MouseController
@@ -9,14 +9,19 @@ from core.targeting import TargetingSystem
 
 def main() -> None:
     capture = ScreenCapture()
-    detector = YoloDetector()
+    detector = YoloDetector(model_path="runs/detect/apex_model_v1/weights/best.pt")
     targeting = TargetingSystem()
     mouse = MouseController()
 
     fov_center = FOV_SIZE // 2
     window_name = "CV-Tracker"
-    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 1000, 1000) # Affiche la fenêtre en 800x800
+
+    if DEBUG:
+        print("Mode DEBUG — fenêtre OpenCV active, appuyez sur 'q' pour quitter.")
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, 1000, 1000)
+    else:
+        print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
     try:
         while True:
@@ -34,24 +39,26 @@ def main() -> None:
                     best_target["distance"],
                 )
 
-            debug_frame = detector.draw_debug(frame, detections)
-            if best_target:
-                cv2.line(
-                    debug_frame,
-                    (fov_center, fov_center),
-                    (int(best_target["x"]), int(best_target["y"])),
-                    (255, 0, 0),
-                    2,
-                )
+            if DEBUG:
+                debug_frame = detector.draw_debug(frame, detections)
+                if best_target:
+                    cv2.line(
+                        debug_frame,
+                        (fov_center, fov_center),
+                        (int(best_target["x"]), int(best_target["y"])),
+                        (255, 0, 0),
+                        2,
+                    )
 
-            cv2.imshow(window_name, debug_frame)
+                cv2.imshow(window_name, debug_frame)
 
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
     except KeyboardInterrupt:
         pass
     finally:
-        cv2.destroyAllWindows()
+        if DEBUG:
+            cv2.destroyAllWindows()
         if not capture._camera.is_released:
             capture._camera.release()
 
