@@ -1,5 +1,7 @@
 from ultralytics import YOLO
 
+from core.config import FOV_SIZE
+
 
 def main() -> None:
     model = YOLO("yolov8n.pt")
@@ -9,7 +11,7 @@ def main() -> None:
     model.train(
         data="datasets/apex-dataset/data.yaml",
         epochs=100,
-        imgsz=416,
+        imgsz=FOV_SIZE,
         device=0,
         batch=32,
         workers=4,
