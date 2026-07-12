@@ -8,14 +8,14 @@ from core.targeting import TargetingSystem
 
 def main() -> None:
     capture = ScreenCapture()
-    detector = YoloDetector()
+    detector = YoloDetector(model_path="apex008.pt")
     targeting = TargetingSystem()
     mouse = MouseController()
 
     fov_center = targeting.fov_size // 2
     window_name = "CV-Tracker"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 800, 800) # Affiche la fenêtre en 800x800
+    cv2.resizeWindow(window_name, 1000, 1000) # Affiche la fenêtre en 800x800
 
     try:
         while True:

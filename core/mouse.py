@@ -4,7 +4,7 @@ MOUSEEVENTF_MOVE = 0x0001
 
 
 class MouseController:
-    def __init__(self, max_smoothing: float = 0.5, magnetic_radius: float = 50.0):
+    def __init__(self, max_smoothing: float = 0.8, magnetic_radius: float = 150.0):
         self.max_smoothing = max_smoothing
         self.magnetic_radius = magnetic_radius
 
