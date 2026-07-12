@@ -8,7 +8,7 @@ from core.targeting import TargetingSystem
 
 def main() -> None:
     capture = ScreenCapture()
-    detector = YoloDetector(model_path="apex008.pt")
+    detector = YoloDetector()
     targeting = TargetingSystem()
     mouse = MouseController()
 
