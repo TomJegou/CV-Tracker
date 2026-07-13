@@ -1,6 +1,6 @@
 import cv2
 
-from core.config import DEBUG, FOV_SIZE
+from core.config import AIM_ASSIST, DEBUG, FOV_SIZE
 from core.capture import ScreenCapture
 from core.detector import YoloDetector
 from core.mouse import MouseController
@@ -11,7 +11,7 @@ def main() -> None:
     capture = ScreenCapture()
     detector = YoloDetector(model_path="runs/detect/apex_model_v1/weights/best.pt")
     targeting = TargetingSystem()
-    mouse = MouseController()
+    mouse = MouseController() if AIM_ASSIST else None
 
     fov_center = FOV_SIZE // 2
     window_name = "CV-Tracker"
@@ -23,6 +23,11 @@ def main() -> None:
     else:
         print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
+    if AIM_ASSIST:
+        print("Aim assist : activé")
+    else:
+        print("Aim assist : désactivé (détection seule)")
+
     try:
         while True:
             frame = capture.get_latest_frame()
@@ -32,7 +37,7 @@ def main() -> None:
             detections = detector.detect(frame)
             best_target = targeting.get_best_target(detections)
 
-            if best_target:
+            if AIM_ASSIST and best_target:
                 mouse.move(
                     best_target["dx"],
                     best_target["dy"],

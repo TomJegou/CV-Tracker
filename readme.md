@@ -62,6 +62,10 @@ Le flag `DEBUG` dans `core/config.py` contrôle le rendu visuel :
 - `DEBUG = True` — fenêtre OpenCV avec annotations, quitte avec `q`
 - `DEBUG = False` — mode production sans `cv2.imshow`, quitte avec `Ctrl+C`
 
+Le flag `AIM_ASSIST` contrôle le déplacement de la souris :
+- `AIM_ASSIST = True` — détection + assistance magnétique
+- `AIM_ASSIST = False` — détection seule, aucun mouvement de souris
+
 ---
 
 ## 4. Phase 2 : Entraînement du Modèle IA
@@ -113,7 +117,7 @@ Le modèle V1 sert de fondation pour construire un dataset sur-mesure sans annot
 - **Performance first** — éviter les copies mémoire inutiles CPU↔GPU ; privilégier `numpy` aux boucles Python natives
 - **Modularité** — découpler chaque étape via le pattern *Producer-Consumer* (`queue.Queue` ou `multiprocessing`) pour que l'inférence ne bloque pas la capture
 - **Développement itératif** — valider chaque module isolément (`python -m core.<module>`) avant l'assemblage dans `main.py`
-- **Configuration centralisée** — toute constante partagée (FOV, seuils, chemins) vit dans `core/config.py`
+- **Configuration centralisée** — toute constante partagée (FOV, seuils, `DEBUG`, `AIM_ASSIST`) vit dans `core/config.py`
 
 ---
 
