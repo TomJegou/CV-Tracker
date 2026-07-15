@@ -1,23 +1,34 @@
 import time
+from pathlib import Path
 
 import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from core.config import resolve_active_model
+
 
 class YoloDetector:
-    def __init__(self, model_path: str = "yolov8n.pt", conf_threshold: float = 0.60):
+    def __init__(
+        self,
+        model_path: str | Path | None = None,
+        conf_threshold: float = 0.60,
+    ):
+        self.model_path = Path(model_path) if model_path else resolve_active_model()
+        self._is_engine = self.model_path.suffix == ".engine"
         self.conf_threshold = conf_threshold
-        self._model = YOLO(model_path)
+        self._model = YOLO(str(self.model_path))
 
     def detect(self, frame: np.ndarray) -> list[dict]:
-        results = self._model(
-            frame,
-            verbose=False,
-            conf=self.conf_threshold,
-            device=0,
-            quantize="fp16",
-        )
+        predict_kwargs: dict = {
+            "verbose": False,
+            "conf": self.conf_threshold,
+            "device": 0,
+        }
+        if not self._is_engine:
+            predict_kwargs["quantize"] = "fp16"
+
+        results = self._model(frame, **predict_kwargs)
 
         detections: list[dict] = []
         for result in results:
@@ -68,6 +79,7 @@ if __name__ == "__main__":
     capture = ScreenCapture()
     detector = YoloDetector()
 
+    print(f"Modèle : {detector.model_path}")
     print(f"FOV {FOV_SIZE}x{FOV_SIZE} centré — région: {capture.region}")
     print("Appuyez sur 'q' dans la fenêtre Debug pour quitter.")
 

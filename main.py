@@ -9,7 +9,8 @@ from core.targeting import TargetingSystem
 
 def main() -> None:
     capture = ScreenCapture()
-    detector = YoloDetector(model_path="runs/detect/apex_model_v1/weights/best.pt")
+    detector = YoloDetector()
+    print(f"Modèle : {detector.model_path}")
     targeting = TargetingSystem()
     mouse = MouseController() if AIM_ASSIST else None
 

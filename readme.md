@@ -53,9 +53,14 @@ Chaque module expose une API non bloquante (`get_latest_frame`, `detect`, `get_b
 ### Lancement
 
 ```bash
-python main.py          # Pipeline complet
-python -m core.capture  # Test isolé de la capture
-python -m core.detector # Test isolé capture + détection
+python main.py                      # Pipeline complet
+python -m core.capture              # Test isolé de la capture
+python -m core.detector             # Test isolé capture + détection
+python scripts/extract_frames.py    # Extraction des frames vidéo
+python scripts/auto_label.py        # Pré-annotation YOLO
+python scripts/split_dataset.py     # Split train/val
+python scripts/train.py             # Entraînement V1 (Roboflow)
+python scripts/train_v2.py          # Entraînement V2 (dataset custom)
 ```
 
 Le flag `DEBUG` dans `core/config.py` contrôle le rendu visuel :

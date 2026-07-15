@@ -7,8 +7,22 @@ __pycache__/
 # Dossier de l'environnement virtuel
 venv/
 env/
-datasets/**
-!datasets/.gitkeep
+
+# Données lourdes
+data/derush/**
+!data/derush/.gitkeep
+data/images_extraites/**
+!data/images_extraites/.gitkeep
+!data/images_extraites/classes.txt
+data/dataset/**
+!data/dataset/.gitkeep
+data/datasets_roboflow/**
+!data/datasets_roboflow/.gitkeep
+data/images_extraites.zip
+
+# Modèles et runs
+models/**
+!models/.gitkeep
 runs/
 *.pt
 *.engine

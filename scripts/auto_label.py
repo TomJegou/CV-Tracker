@@ -1,0 +1,98 @@
+import sys
+from pathlib import Path
+
+from ultralytics import YOLO
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR))
+
+from core.config import DEFAULT_YOLO_MODEL, IMAGES_EXTRAITES_DIR, V1_MODEL
+
+CONF_THRESHOLD = 0.15
+MODEL_CANDIDATES = (
+    V1_MODEL,
+    DEFAULT_YOLO_MODEL,
+)
+
+
+def resolve_model_path() -> Path:
+    for candidate in MODEL_CANDIDATES:
+        if candidate.exists():
+            return candidate
+
+    searched = ", ".join(str(path) for path in MODEL_CANDIDATES)
+    raise FileNotFoundError(f"Aucun modèle trouvé. Chemins testés : {searched}")
+
+
+def to_yolo_lines(result) -> list[str]:
+    if result.boxes is None or len(result.boxes) == 0:
+        return []
+
+    lines: list[str] = []
+    for box in result.boxes:
+        class_id = int(box.cls[0])
+        x_center, y_center, width, height = box.xywhn[0].tolist()
+        lines.append(
+            f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
+        )
+
+    return lines
+
+
+def auto_label_image(model: YOLO, image_path: Path) -> int:
+    results = model.predict(
+        source=str(image_path),
+        conf=CONF_THRESHOLD,
+        verbose=False,
+        device=0,
+    )
+
+    lines = to_yolo_lines(results[0])
+    label_path = image_path.with_suffix(".txt")
+    label_path.write_text(
+        "\n".join(lines) + ("\n" if lines else ""),
+        encoding="utf-8",
+    )
+    return len(lines)
+
+
+def main() -> None:
+    model_path = resolve_model_path()
+    model = YOLO(str(model_path))
+
+    images = sorted(IMAGES_EXTRAITES_DIR.glob("*.jpg"))
+    total_images = len(images)
+
+    print(f"Modèle chargé : {model_path}")
+    print(f"{total_images} image(s) trouvée(s) dans {IMAGES_EXTRAITES_DIR}/")
+
+    if not images:
+        print("Aucune image .jpg à traiter.")
+        return
+
+    labeled_count = 0
+    empty_count = 0
+
+    for index, image_path in enumerate(images, start=1):
+        detections = auto_label_image(model, image_path)
+
+        if detections > 0:
+            labeled_count += 1
+        else:
+            empty_count += 1
+
+        if index % 50 == 0 or index == total_images:
+            print(
+                f"Progression : {index}/{total_images} "
+                f"({labeled_count} avec cibles, {empty_count} vides)"
+            )
+
+    print("\nAuto-labeling terminé.")
+    print(f"  Images traitées : {total_images}")
+    print(f"  Images avec cibles : {labeled_count}")
+    print(f"  Images vides : {empty_count}")
+    print(f"  Labels sauvegardés dans {IMAGES_EXTRAITES_DIR}/")
+
+
+if __name__ == "__main__":
+    main()
