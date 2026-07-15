@@ -11,9 +11,20 @@ env/
 # Données lourdes
 data/derush/**
 !data/derush/.gitkeep
+!data/derush/v1/
+!data/derush/v1/.gitkeep
+!data/derush/v2/
+!data/derush/v2/.gitkeep
+
 data/images_extraites/**
 !data/images_extraites/.gitkeep
-!data/images_extraites/classes.txt
+!data/images_extraites/v1/
+!data/images_extraites/v1/.gitkeep
+!data/images_extraites/v1/classes.txt
+!data/images_extraites/v2/
+!data/images_extraites/v2/.gitkeep
+!data/images_extraites/v2/classes.txt
+
 data/dataset/**
 !data/dataset/.gitkeep
 data/datasets_roboflow/**
