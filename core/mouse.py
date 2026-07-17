@@ -1,10 +1,15 @@
 import ctypes
 
 MOUSEEVENTF_MOVE = 0x0001
+VK_LBUTTON = 0x01
+
+
+def is_left_mouse_pressed() -> bool:
+    return bool(ctypes.windll.user32.GetAsyncKeyState(VK_LBUTTON) & 0x8000)
 
 
 class MouseController:
-    def __init__(self, max_smoothing: float = 0.8, magnetic_radius: float = 150.0):
+    def __init__(self, max_smoothing: float = 0.9, magnetic_radius: float = 150.0):
         self.max_smoothing = max_smoothing
         self.magnetic_radius = magnetic_radius
 

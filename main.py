@@ -1,9 +1,9 @@
 import cv2
 
-from core.config import AIM_ASSIST, DEBUG, FOV_SIZE
+from core.config import AIM_ASSIST, AIM_ASSIST_REQUIRE_LMB, DEBUG, FOV_SIZE
 from core.capture import ScreenCapture
 from core.detector import YoloDetector
-from core.mouse import MouseController
+from core.mouse import MouseController, is_left_mouse_pressed
 from core.targeting import TargetingSystem
 
 
@@ -25,7 +25,10 @@ def main() -> None:
         print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
     if AIM_ASSIST:
-        print("Aim assist : activé")
+        if AIM_ASSIST_REQUIRE_LMB:
+            print("Aim assist : activé (clic gauche maintenu)")
+        else:
+            print("Aim assist : activé")
     else:
         print("Aim assist : désactivé (détection seule)")
 
@@ -39,11 +42,13 @@ def main() -> None:
             best_target = targeting.get_best_target(detections)
 
             if AIM_ASSIST and best_target:
-                mouse.move(
-                    best_target["dx"],
-                    best_target["dy"],
-                    best_target["distance"],
-                )
+                trigger_active = not AIM_ASSIST_REQUIRE_LMB or is_left_mouse_pressed()
+                if trigger_active:
+                    mouse.move(
+                        best_target["dx"],
+                        best_target["dy"],
+                        best_target["distance"],
+                    )
 
             if DEBUG:
                 debug_frame = detector.draw_debug(frame, detections)

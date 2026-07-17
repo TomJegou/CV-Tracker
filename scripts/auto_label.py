@@ -6,10 +6,11 @@ from ultralytics import YOLO
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
-from core.config import DEFAULT_YOLO_MODEL, IMAGES_EXTRAITES_DIR, V1_MODEL
+from core.config import DEFAULT_YOLO_MODEL, IMAGES_EXTRAITES_DIR, V1_MODEL, V2_MODEL
 
-CONF_THRESHOLD = 0.15
+CONF_THRESHOLD = 0.45
 MODEL_CANDIDATES = (
+    V2_MODEL,
     V1_MODEL,
     DEFAULT_YOLO_MODEL,
 )
@@ -60,11 +61,15 @@ def main() -> None:
     model_path = resolve_model_path()
     model = YOLO(str(model_path))
 
-    images = sorted(IMAGES_EXTRAITES_DIR.glob("*.jpg"))
+    all_images = sorted(IMAGES_EXTRAITES_DIR.glob("*.jpg"))
+    images = [img for img in all_images if not img.name.startswith("FAUX_POSITIF_")]
+    skipped = len(all_images) - len(images)
     total_images = len(images)
 
     print(f"Modèle chargé : {model_path}")
-    print(f"{total_images} image(s) trouvée(s) dans {IMAGES_EXTRAITES_DIR}/")
+    print(f"{len(all_images)} image(s) trouvée(s) dans {IMAGES_EXTRAITES_DIR}/")
+    if skipped:
+        print(f"{skipped} faux positif(s) ignoré(s) (FAUX_POSITIF_*)")
 
     if not images:
         print("Aucune image .jpg à traiter.")
@@ -91,6 +96,7 @@ def main() -> None:
     print(f"  Images traitées : {total_images}")
     print(f"  Images avec cibles : {labeled_count}")
     print(f"  Images vides : {empty_count}")
+    print(f"  Faux positifs préservés : {skipped}")
     print(f"  Labels sauvegardés dans {IMAGES_EXTRAITES_DIR}/")
 
 

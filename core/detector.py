@@ -12,7 +12,7 @@ class YoloDetector:
     def __init__(
         self,
         model_path: str | Path | None = None,
-        conf_threshold: float = 0.60,
+        conf_threshold: float = 0.50,
     ):
         self.model_path = Path(model_path) if model_path else resolve_active_model()
         self._is_engine = self.model_path.suffix == ".engine"
