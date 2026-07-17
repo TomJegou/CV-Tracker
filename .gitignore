@@ -31,6 +31,8 @@ data/datasets_roboflow/**
 !data/datasets_roboflow/.gitkeep
 data/images_extraites.zip
 
+datasets/auto_collected/**
+
 # Modèles et runs
 models/**
 !models/.gitkeep

@@ -1,9 +1,18 @@
 import cv2
 
-from core.config import AIM_ASSIST, AIM_ASSIST_REQUIRE_LMB, DEBUG, FOV_SIZE
+from core.config import (
+    AIM_ASSIST,
+    AIM_ASSIST_REQUIRE_LMB,
+    DATA_MINING_COOLDOWN,
+    DATA_MINING_SAVE_DIR,
+    DEBUG,
+    ENABLE_DATA_MINING,
+    FOV_SIZE,
+)
 from core.capture import ScreenCapture
+from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, is_left_mouse_pressed
+from core.mouse import MouseController, is_left_click_pressed, is_left_mouse_pressed
 from core.targeting import TargetingSystem
 
 
@@ -13,6 +22,11 @@ def main() -> None:
     print(f"Modèle : {detector.model_path}")
     targeting = TargetingSystem()
     mouse = MouseController() if AIM_ASSIST else None
+    collector = (
+        DataCollector(DATA_MINING_SAVE_DIR, DATA_MINING_COOLDOWN)
+        if ENABLE_DATA_MINING
+        else None
+    )
 
     fov_center = FOV_SIZE // 2
     window_name = "CV-Tracker"
@@ -32,6 +46,9 @@ def main() -> None:
     else:
         print("Aim assist : désactivé (détection seule)")
 
+    if ENABLE_DATA_MINING:
+        print(f"Data mining : activé → {DATA_MINING_SAVE_DIR}/")
+
     try:
         while True:
             frame = capture.get_latest_frame()
@@ -49,6 +66,12 @@ def main() -> None:
                         best_target["dy"],
                         best_target["distance"],
                     )
+
+            if ENABLE_DATA_MINING:
+                if detections:
+                    collector.add_image(frame, reason="detection")
+                if is_left_click_pressed():
+                    collector.add_image(frame, reason="click")
 
             if DEBUG:
                 debug_frame = detector.draw_debug(frame, detections)

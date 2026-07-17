@@ -11,6 +11,10 @@ DEBUG = True
 AIM_ASSIST = True
 AIM_ASSIST_REQUIRE_LMB = True  # Si True, l'aim assist ne s'active que pendant le clic gauche
 
+ENABLE_DATA_MINING = True
+DATA_MINING_COOLDOWN = 0.5
+DATA_MINING_SAVE_DIR = ROOT_DIR / "datasets" / "auto_collected"
+
 # Version active pour l'extraction / labeling / split (v1 = archive, v2 = nouveau dataset)
 DATA_VERSION = "v2"
 
