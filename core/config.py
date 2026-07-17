@@ -11,6 +11,13 @@ DEBUG = True
 AIM_ASSIST = True
 AIM_ASSIST_REQUIRE_LMB = True  # Si True, l'aim assist ne s'active que pendant le clic gauche
 
+# Détection YOLO
+CONF_THRESHOLD = 0.50
+
+# Aim assist (MouseController)
+MAX_SMOOTHING = 0.9  # Force max de l'aimant quand on est sur la cible (0 → 1)
+MAGNETIC_RADIUS = 150.0  # Distance (px) au-delà de laquelle l'assist est nul
+
 ENABLE_DATA_MINING = True
 DATA_MINING_COOLDOWN = 0.5
 DATA_MINING_SAVE_DIR = DATA_DIR / "auto_collected"

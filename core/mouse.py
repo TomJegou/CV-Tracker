@@ -1,5 +1,7 @@
 import ctypes
 
+from core.config import MAGNETIC_RADIUS, MAX_SMOOTHING
+
 MOUSEEVENTF_MOVE = 0x0001
 VK_LBUTTON = 0x01
 
@@ -9,7 +11,11 @@ def is_left_mouse_pressed() -> bool:
 
 
 class MouseController:
-    def __init__(self, max_smoothing: float = 0.9, magnetic_radius: float = 150.0):
+    def __init__(
+        self,
+        max_smoothing: float = MAX_SMOOTHING,
+        magnetic_radius: float = MAGNETIC_RADIUS,
+    ):
         self.max_smoothing = max_smoothing
         self.magnetic_radius = magnetic_radius
 

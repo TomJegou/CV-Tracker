@@ -5,14 +5,14 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from core.config import resolve_active_model
+from core.config import CONF_THRESHOLD, resolve_active_model
 
 
 class YoloDetector:
     def __init__(
         self,
         model_path: str | Path | None = None,
-        conf_threshold: float = 0.50,
+        conf_threshold: float = CONF_THRESHOLD,
     ):
         self.model_path = Path(model_path) if model_path else resolve_active_model()
         self._is_engine = self.model_path.suffix == ".engine"
