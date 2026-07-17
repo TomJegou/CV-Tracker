@@ -8,9 +8,6 @@ def is_left_mouse_pressed() -> bool:
     return bool(ctypes.windll.user32.GetAsyncKeyState(VK_LBUTTON) & 0x8000)
 
 
-is_left_click_pressed = is_left_mouse_pressed
-
-
 class MouseController:
     def __init__(self, max_smoothing: float = 0.9, magnetic_radius: float = 150.0):
         self.max_smoothing = max_smoothing

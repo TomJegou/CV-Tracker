@@ -12,7 +12,7 @@ from core.config import (
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, is_left_click_pressed, is_left_mouse_pressed
+from core.mouse import MouseController, is_left_mouse_pressed
 from core.targeting import TargetingSystem
 
 
@@ -70,7 +70,7 @@ def main() -> None:
             if ENABLE_DATA_MINING:
                 if detections:
                     collector.add_image(frame, reason="detection")
-                if is_left_click_pressed():
+                if is_left_mouse_pressed():
                     collector.add_image(frame, reason="click")
 
             if DEBUG:

@@ -20,8 +20,6 @@ DATA_VERSION = "v2"
 
 DERUSH_DIR = DATA_DIR / "derush" / DATA_VERSION
 IMAGES_EXTRAITES_DIR = DATA_DIR / "images_extraites" / DATA_VERSION
-DERUSH_V1_DIR = DATA_DIR / "derush" / "v1"
-IMAGES_EXTRAITES_V1_DIR = DATA_DIR / "images_extraites" / "v1"
 DATASET_TRAIN_DIR = DATA_DIR / "dataset" / "train"
 DATASET_VAL_DIR = DATA_DIR / "dataset" / "val"
 APEX_V2_YAML = ROOT_DIR / "apex_v2.yaml"
@@ -46,6 +44,3 @@ def resolve_active_model() -> Path:
     if V1_MODEL.exists():
         return V1_MODEL
     return DEFAULT_YOLO_MODEL
-
-
-ACTIVE_MODEL = resolve_active_model()
