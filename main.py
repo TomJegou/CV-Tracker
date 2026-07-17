@@ -1,3 +1,5 @@
+import time
+
 import cv2
 
 from core.config import (
@@ -12,7 +14,8 @@ from core.config import (
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, is_left_mouse_pressed
+from core.mouse import MouseController
+from core.pipeline import AimPipeline
 from core.targeting import TargetingSystem
 
 
@@ -26,6 +29,18 @@ def main() -> None:
         DataCollector(DATA_MINING_SAVE_DIR, DATA_MINING_COOLDOWN)
         if ENABLE_DATA_MINING
         else None
+    )
+
+    pipeline = AimPipeline(
+        capture,
+        detector,
+        targeting,
+        mouse,
+        collector,
+        aim_assist=AIM_ASSIST,
+        aim_assist_require_lmb=AIM_ASSIST_REQUIRE_LMB,
+        enable_data_mining=ENABLE_DATA_MINING,
+        debug=DEBUG,
     )
 
     fov_center = FOV_SIZE // 2
@@ -49,48 +64,38 @@ def main() -> None:
     if ENABLE_DATA_MINING:
         print(f"Data mining : activé → {DATA_MINING_SAVE_DIR}/")
 
+    print("Pipeline découplée : capture | detect | mouse")
+
+    pipeline.start()
+
     try:
         while True:
-            frame = capture.get_latest_frame()
-            if frame is None:
-                continue
-
-            detections = detector.detect(frame)
-            best_target = targeting.get_best_target(detections)
-
-            if AIM_ASSIST and best_target:
-                trigger_active = not AIM_ASSIST_REQUIRE_LMB or is_left_mouse_pressed()
-                if trigger_active:
-                    mouse.move(
-                        best_target["dx"],
-                        best_target["dy"],
-                        best_target["distance"],
-                    )
-
-            if ENABLE_DATA_MINING:
-                if detections:
-                    collector.add_image(frame, reason="detection")
-                if is_left_mouse_pressed():
-                    collector.add_image(frame, reason="click")
-
             if DEBUG:
-                debug_frame = detector.draw_debug(frame, detections)
-                if best_target:
-                    cv2.line(
-                        debug_frame,
-                        (fov_center, fov_center),
-                        (int(best_target["x"]), int(best_target["y"])),
-                        (255, 0, 0),
-                        2,
-                    )
-
-                cv2.imshow(window_name, debug_frame)
+                packet = pipeline.get_debug_frame(timeout=0.05)
+                if packet is not None:
+                    debug_frame = detector.draw_debug(packet.frame, packet.detections)
+                    if packet.best_target:
+                        cv2.line(
+                            debug_frame,
+                            (fov_center, fov_center),
+                            (
+                                int(packet.best_target["x"]),
+                                int(packet.best_target["y"]),
+                            ),
+                            (255, 0, 0),
+                            2,
+                        )
+                    cv2.imshow(window_name, debug_frame)
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
+            else:
+                # Garde le process vivant ; capture/detect/mouse tournent en background
+                time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
+        pipeline.stop()
         if DEBUG:
             cv2.destroyAllWindows()
         if not capture._camera.is_released:
