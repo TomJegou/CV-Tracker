@@ -8,6 +8,9 @@ __pycache__/
 venv/
 env/
 
+# Ancien dossier de collecte (legacy)
+datasets/
+
 # Données lourdes
 data/derush/**
 !data/derush/.gitkeep

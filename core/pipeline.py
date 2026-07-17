@@ -3,9 +3,9 @@ import threading
 import time
 from dataclasses import dataclass
 
-import cv2
 import numpy as np
 
+from core import config
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
@@ -14,13 +14,20 @@ from core.targeting import TargetingSystem
 
 
 def put_latest(q: queue.Queue, item) -> None:
-    """Garde uniquement la valeur la plus récente (queue size 1 logique)."""
+    """Remplace le contenu de la queue pour ne garder que la valeur la plus récente."""
     while True:
         try:
             q.get_nowait()
         except queue.Empty:
             break
-    q.put(item)
+    try:
+        q.put_nowait(item)
+    except queue.Full:
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            pass
+        q.put_nowait(item)
 
 
 @dataclass
@@ -36,13 +43,13 @@ class AimPipeline:
         capture: ScreenCapture,
         detector: YoloDetector,
         targeting: TargetingSystem,
-        mouse: MouseController | None,
-        collector: DataCollector | None,
+        mouse: MouseController | None = None,
+        collector: DataCollector | None = None,
         *,
-        aim_assist: bool,
-        aim_assist_require_lmb: bool,
-        enable_data_mining: bool,
-        debug: bool,
+        aim_assist: bool = config.AIM_ASSIST,
+        aim_assist_require_lmb: bool = config.AIM_ASSIST_REQUIRE_LMB,
+        enable_data_mining: bool = config.ENABLE_DATA_MINING,
+        debug: bool = config.DEBUG,
     ):
         self._capture = capture
         self._detector = detector
@@ -61,7 +68,27 @@ class AimPipeline:
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
+    @classmethod
+    def create(cls) -> "AimPipeline":
+        capture = ScreenCapture()
+        detector = YoloDetector()
+        targeting = TargetingSystem()
+        mouse = MouseController() if config.AIM_ASSIST else None
+        collector = DataCollector() if config.ENABLE_DATA_MINING else None
+        return cls(capture, detector, targeting, mouse, collector)
+
+    @property
+    def capture(self) -> ScreenCapture:
+        return self._capture
+
+    @property
+    def detector(self) -> YoloDetector:
+        return self._detector
+
     def start(self) -> None:
+        if self._threads:
+            return
+
         workers = [
             ("capture", self._capture_loop),
             ("detect", self._detect_loop),
@@ -69,6 +96,7 @@ class AimPipeline:
         if self._aim_assist and self._mouse is not None:
             workers.append(("mouse", self._mouse_loop))
 
+        self._stop.clear()
         for name, target in workers:
             thread = threading.Thread(target=target, name=name, daemon=True)
             thread.start()
@@ -78,6 +106,8 @@ class AimPipeline:
         self._stop.set()
         for thread in self._threads:
             thread.join(timeout=1.0)
+        self._threads.clear()
+        self._capture.release()
 
     def get_debug_frame(self, timeout: float = 0.05) -> DebugFrame | None:
         try:
@@ -120,6 +150,7 @@ class AimPipeline:
                 )
 
     def _mouse_loop(self) -> None:
+        assert self._mouse is not None
         last_target: dict | None = None
 
         while not self._stop.is_set():

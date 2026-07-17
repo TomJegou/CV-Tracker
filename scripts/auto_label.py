@@ -1,14 +1,12 @@
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from ultralytics import YOLO
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+from core.config import AUTO_LABEL_CONF, DEFAULT_YOLO_MODEL, IMAGES_EXTRAITES_DIR, V1_MODEL, V2_MODEL
 
-from core.config import DEFAULT_YOLO_MODEL, IMAGES_EXTRAITES_DIR, V1_MODEL, V2_MODEL
-
-CONF_THRESHOLD = 0.45
 MODEL_CANDIDATES = (
     V2_MODEL,
     V1_MODEL,
@@ -43,7 +41,7 @@ def to_yolo_lines(result) -> list[str]:
 def auto_label_image(model: YOLO, image_path: Path) -> int:
     results = model.predict(
         source=str(image_path),
-        conf=CONF_THRESHOLD,
+        conf=AUTO_LABEL_CONF,
         verbose=False,
         device=0,
     )

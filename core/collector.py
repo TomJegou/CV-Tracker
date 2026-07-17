@@ -7,16 +7,26 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from core.config import DATA_MINING_COOLDOWN, DATA_MINING_SAVE_DIR
+
 
 class DataCollector:
-    def __init__(self, save_dir: Path, cooldown: float = 0.5):
-        self._save_dir = save_dir
+    def __init__(
+        self,
+        save_dir: Path = DATA_MINING_SAVE_DIR,
+        cooldown: float = DATA_MINING_COOLDOWN,
+    ):
+        self._save_dir = Path(save_dir)
         self._cooldown = cooldown
         self._last_capture_time = 0.0
         self._queue: queue.Queue[tuple[np.ndarray, str]] = queue.Queue()
         self._save_dir.mkdir(parents=True, exist_ok=True)
 
-        self._worker = threading.Thread(target=self._process_queue, daemon=True)
+        self._worker = threading.Thread(
+            target=self._process_queue,
+            name="data-collector",
+            daemon=True,
+        )
         self._worker.start()
 
     def add_image(self, image: np.ndarray, reason: str) -> None:

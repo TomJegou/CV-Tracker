@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
 
-from ultralytics import YOLO
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+from ultralytics import YOLO
 
 from core.config import DEFAULT_YOLO_MODEL, FOV_SIZE, ROBOFLOW_DATASET_YAML, RUNS_DETECT_DIR, V1_MODEL
 
@@ -12,7 +11,7 @@ from core.config import DEFAULT_YOLO_MODEL, FOV_SIZE, ROBOFLOW_DATASET_YAML, RUN
 def main() -> None:
     model = YOLO(str(DEFAULT_YOLO_MODEL))
 
-    print("Démarrage de l'entraînement sur la RTX 4070...")
+    print("Démarrage de l'entraînement V1 sur la RTX 4070...")
 
     model.train(
         data=str(ROBOFLOW_DATASET_YAML),

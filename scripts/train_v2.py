@@ -1,14 +1,14 @@
 import sys
 from pathlib import Path
 
-from ultralytics import YOLO
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+from ultralytics import YOLO
 
 from core.config import (
     APEX_V2_YAML,
     DEFAULT_YOLO_MODEL,
+    FOV_SIZE,
     RUNS_DETECT_DIR,
     V1_MODEL,
     V2_MODEL,
@@ -17,8 +17,10 @@ from core.config import (
 
 
 def main() -> None:
-    model_path = V2_MODEL if V2_MODEL.exists() else (
-        V1_MODEL if V1_MODEL.exists() else DEFAULT_YOLO_MODEL
+    model_path = (
+        V2_MODEL
+        if V2_MODEL.exists()
+        else V1_MODEL if V1_MODEL.exists() else DEFAULT_YOLO_MODEL
     )
     model = YOLO(str(model_path))
 
@@ -28,7 +30,7 @@ def main() -> None:
     model.train(
         data=str(APEX_V2_YAML),
         epochs=50,
-        imgsz=416,
+        imgsz=FOV_SIZE,
         batch=16,
         device=0,
         project=str(RUNS_DETECT_DIR),

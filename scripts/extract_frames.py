@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
 
-import cv2
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+import cv2
 
 from core.config import DERUSH_DIR, FOV_SIZE, IMAGES_EXTRAITES_DIR
 
@@ -81,7 +80,10 @@ def main() -> None:
     for video_path in videos:
         total_images += extract_from_video(video_path, output_dir)
 
-    print(f"\nExtraction terminée : {total_images} image(s) sauvegardée(s) dans {output_dir}/")
+    print(
+        f"\nExtraction terminée : {total_images} image(s) "
+        f"sauvegardée(s) dans {output_dir}/"
+    )
 
 
 if __name__ == "__main__":

@@ -1,10 +1,9 @@
 import sys
 from pathlib import Path
 
-from ultralytics import YOLO
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+from ultralytics import YOLO
 
 from core.config import FOV_SIZE, V3_ENGINE, V3_MODEL
 

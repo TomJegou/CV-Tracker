@@ -109,5 +109,4 @@ if __name__ == "__main__":
                 break
     finally:
         cv2.destroyAllWindows()
-        if not capture._camera.is_released:
-            capture._camera.release()
+        capture.release()

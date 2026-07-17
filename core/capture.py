@@ -17,12 +17,9 @@ class ScreenCapture:
         if self._camera is None:
             raise RuntimeError("Impossible d'initialiser dxcam.")
 
-        screen_width = self._camera.width
-        screen_height = self._camera.height
-
-        half = self.fov_size // 2
-        center_x = screen_width // 2
-        center_y = screen_height // 2
+        half = fov_size // 2
+        center_x = self._camera.width // 2
+        center_y = self._camera.height // 2
 
         self._region = (
             center_x - half,
@@ -37,6 +34,10 @@ class ScreenCapture:
 
     def get_latest_frame(self) -> np.ndarray | None:
         return self._camera.grab(region=self._region)
+
+    def release(self) -> None:
+        if not self._camera.is_released:
+            self._camera.release()
 
 
 if __name__ == "__main__":
@@ -59,8 +60,7 @@ if __name__ == "__main__":
             frame_count += 1
             elapsed = time.perf_counter() - fps_timer
             if elapsed >= 1.0:
-                fps = frame_count / elapsed
-                print(f"FPS: {fps:.1f}")
+                print(f"FPS: {frame_count / elapsed:.1f}")
                 frame_count = 0
                 fps_timer = time.perf_counter()
 
@@ -68,5 +68,4 @@ if __name__ == "__main__":
                 break
     finally:
         cv2.destroyAllWindows()
-        if not capture._camera.is_released:
-            capture._camera.release()
+        capture.release()

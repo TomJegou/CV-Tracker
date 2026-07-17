@@ -1,36 +1,41 @@
 from pathlib import Path
 
+# --- Chemins ---
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 MODELS_DIR = ROOT_DIR / "models"
 RUNS_DIR = ROOT_DIR / "runs"
 RUNS_DETECT_DIR = RUNS_DIR / "detect"
 
+# --- Pipeline runtime ---
 FOV_SIZE = 416
 DEBUG = True
 AIM_ASSIST = True
-AIM_ASSIST_REQUIRE_LMB = True  # Si True, l'aim assist ne s'active que pendant le clic gauche
+AIM_ASSIST_REQUIRE_LMB = True
 
-# Détection YOLO
+# --- Détection ---
 CONF_THRESHOLD = 0.50
+AUTO_LABEL_CONF = 0.45
 
-# Aim assist (MouseController)
-MAX_SMOOTHING = 0.9  # Force max de l'aimant quand on est sur la cible (0 → 1)
-MAGNETIC_RADIUS = 150.0  # Distance (px) au-delà de laquelle l'assist est nul
+# --- Aim assist ---
+MAX_SMOOTHING = 0.9
+MAGNETIC_RADIUS = 150.0
 
+# --- Data mining ---
 ENABLE_DATA_MINING = True
 DATA_MINING_COOLDOWN = 0.5
 DATA_MINING_SAVE_DIR = DATA_DIR / "auto_collected"
 
-# Version active pour l'extraction / labeling / split (v1 = archive, v2 = nouveau dataset)
+# --- Dataset / entraînement ---
 DATA_VERSION = "v2"
-
 DERUSH_DIR = DATA_DIR / "derush" / DATA_VERSION
 IMAGES_EXTRAITES_DIR = DATA_DIR / "images_extraites" / DATA_VERSION
 DATASET_TRAIN_DIR = DATA_DIR / "dataset" / "train"
 DATASET_VAL_DIR = DATA_DIR / "dataset" / "val"
 APEX_V2_YAML = ROOT_DIR / "apex_v2.yaml"
 ROBOFLOW_DATASET_YAML = DATA_DIR / "datasets_roboflow" / "apex-dataset" / "data.yaml"
+
+# --- Modèles ---
 DEFAULT_YOLO_MODEL = MODELS_DIR / "yolov8n.pt"
 V1_MODEL = RUNS_DETECT_DIR / "apex_model_v1" / "weights" / "best.pt"
 V2_MODEL = RUNS_DETECT_DIR / "apex_model_v2" / "weights" / "best.pt"

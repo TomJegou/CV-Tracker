@@ -3,8 +3,7 @@ import shutil
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.config import DATASET_TRAIN_DIR, DATASET_VAL_DIR, IMAGES_EXTRAITES_DIR
 
@@ -43,16 +42,8 @@ def main() -> None:
     DATASET_TRAIN_DIR.mkdir(parents=True, exist_ok=True)
     DATASET_VAL_DIR.mkdir(parents=True, exist_ok=True)
 
-    train_pairs = 0
-    val_pairs = 0
-
-    for image_path in train_images:
-        if copy_pair(image_path, DATASET_TRAIN_DIR):
-            train_pairs += 1
-
-    for image_path in val_images:
-        if copy_pair(image_path, DATASET_VAL_DIR):
-            val_pairs += 1
+    train_pairs = sum(copy_pair(path, DATASET_TRAIN_DIR) for path in train_images)
+    val_pairs = sum(copy_pair(path, DATASET_VAL_DIR) for path in val_images)
 
     print("\nSéparation terminée (seed=42, ratio 80/20).")
     print(
