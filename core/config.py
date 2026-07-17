@@ -11,13 +11,16 @@ RUNS_DETECT_DIR = RUNS_DIR / "detect"
 FOV_SIZE = 416
 DEBUG = True
 AIM_ASSIST = True
-AIM_ASSIST_REQUIRE_LMB = True
+AIM_ASSIST_REQUIRE_LMB = False
 
 # --- Détection ---
-CONF_THRESHOLD = 0.50
+CONF_THRESHOLD = 0.65
 AUTO_LABEL_CONF = 0.45
 
-# --- Aim assist ---
+# --- Aim ---
+# "lock"   = snap dur vers le centre de la box (banc de test pipeline)
+# "assist" = friction magnétique (feeling jouable)
+AIM_MODE = "lock"
 MAX_SMOOTHING = 0.9
 MAGNETIC_RADIUS = 150.0
 

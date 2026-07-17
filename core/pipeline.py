@@ -154,9 +154,11 @@ class AimPipeline:
         last_target: dict | None = None
 
         while not self._stop.is_set():
+            fresh = False
             try:
                 while True:
                     last_target = self._target_queue.get_nowait()
+                    fresh = True
             except queue.Empty:
                 pass
 
@@ -165,10 +167,11 @@ class AimPipeline:
                     not self._aim_assist_require_lmb or is_left_mouse_pressed()
                 )
                 if trigger_active:
-                    self._mouse.move(
+                    self._mouse.apply(
                         last_target["dx"],
                         last_target["dy"],
                         last_target["distance"],
+                        fresh=fresh,
                     )
 
             time.sleep(0.001)

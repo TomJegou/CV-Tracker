@@ -15,10 +15,10 @@ def _print_status(pipeline: AimPipeline) -> None:
         print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
     if config.AIM_ASSIST:
-        mode = "clic gauche maintenu" if config.AIM_ASSIST_REQUIRE_LMB else "toujours actif"
-        print(f"Aim assist : activé ({mode})")
+        trigger = "clic gauche" if config.AIM_ASSIST_REQUIRE_LMB else "toujours actif"
+        print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
     else:
-        print("Aim assist : désactivé (détection seule)")
+        print("Aim : désactivé (détection seule)")
 
     if config.ENABLE_DATA_MINING:
         print(f"Data mining : activé → {config.DATA_MINING_SAVE_DIR}/")
