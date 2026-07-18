@@ -4,8 +4,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 MODELS_DIR = ROOT_DIR / "models"
-RUNS_DIR = ROOT_DIR / "runs"
-RUNS_DETECT_DIR = RUNS_DIR / "detect"
+RUNS_DETECT_DIR = ROOT_DIR / "runs" / "detect"
 
 # --- Pipeline runtime ---
 FOV_SIZE = 416
@@ -18,16 +17,21 @@ CONF_THRESHOLD = 0.65
 AUTO_LABEL_CONF = 0.45
 
 # --- Aim ---
-# "lock"   = snap dur vers le centre de la box (banc de test pipeline)
-# "assist" = friction magnétique (feeling jouable)
+# "lock" = snap direct (banc de test) | "assist" = friction magnétique
 AIM_MODE = "lock"
+LOCK_SCALE = 1.0
+AIM_DEBUG_MOVES = True
 MAX_SMOOTHING = 0.9
 MAGNETIC_RADIUS = 150.0
 
-# --- Data mining ---
-ENABLE_DATA_MINING = True
-DATA_MINING_COOLDOWN = 0.5
+# --- Data mining (FP / FN suspects) ---
+ENABLE_DATA_MINING = False
 DATA_MINING_SAVE_DIR = DATA_DIR / "auto_collected"
+DATA_MINING_UNCERTAIN_MIN = 0.65
+DATA_MINING_UNCERTAIN_MAX = 0.85
+DATA_MINING_FN_MAX_CONF = 0.75
+DATA_MINING_COOLDOWN_FP = 0.5
+DATA_MINING_COOLDOWN_FN = 0.3
 
 # --- Dataset / entraînement ---
 DATA_VERSION = "v2"

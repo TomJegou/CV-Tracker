@@ -9,7 +9,6 @@ from core.config import FOV_SIZE
 
 class ScreenCapture:
     def __init__(self, output_idx: int = 0, fov_size: int = FOV_SIZE):
-        self.fov_size = fov_size
         self._camera = dxcam.create(
             output_idx=output_idx,
             output_color="BGR",

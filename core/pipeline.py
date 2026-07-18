@@ -1,6 +1,5 @@
 import queue
 import threading
-import time
 from dataclasses import dataclass
 
 import numpy as np
@@ -78,10 +77,6 @@ class AimPipeline:
         return cls(capture, detector, targeting, mouse, collector)
 
     @property
-    def capture(self) -> ScreenCapture:
-        return self._capture
-
-    @property
     def detector(self) -> YoloDetector:
         return self._detector
 
@@ -134,10 +129,11 @@ class AimPipeline:
             put_latest(self._target_queue, best_target)
 
             if self._enable_data_mining and self._collector is not None:
-                if detections:
-                    self._collector.add_image(frame, reason="detection")
-                if is_left_mouse_pressed():
-                    self._collector.add_image(frame, reason="click")
+                self._collector.consider(
+                    frame,
+                    detections,
+                    clicking=is_left_mouse_pressed(),
+                )
 
             if self._debug:
                 put_latest(
@@ -151,27 +147,17 @@ class AimPipeline:
 
     def _mouse_loop(self) -> None:
         assert self._mouse is not None
-        last_target: dict | None = None
 
         while not self._stop.is_set():
-            fresh = False
             try:
-                while True:
-                    last_target = self._target_queue.get_nowait()
-                    fresh = True
+                target = self._target_queue.get(timeout=0.05)
             except queue.Empty:
-                pass
+                continue
 
-            if last_target is not None:
-                trigger_active = (
-                    not self._aim_assist_require_lmb or is_left_mouse_pressed()
-                )
-                if trigger_active:
-                    self._mouse.apply(
-                        last_target["dx"],
-                        last_target["dy"],
-                        last_target["distance"],
-                        fresh=fresh,
-                    )
+            if target is None:
+                continue
 
-            time.sleep(0.001)
+            if self._aim_assist_require_lmb and not is_left_mouse_pressed():
+                continue
+
+            self._mouse.apply(target["dx"], target["dy"], target["distance"])
