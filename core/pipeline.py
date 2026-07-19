@@ -8,7 +8,7 @@ from core import config
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, is_left_mouse_pressed
+from core.mouse import MouseController, is_ads_and_firing, is_left_mouse_pressed
 from core.targeting import TargetingSystem
 
 
@@ -132,7 +132,7 @@ class AimPipeline:
                 self._collector.consider(
                     frame,
                     detections,
-                    clicking=is_left_mouse_pressed(),
+                    clicking=is_ads_and_firing(),
                 )
 
             if self._debug:

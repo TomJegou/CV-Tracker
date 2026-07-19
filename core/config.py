@@ -9,7 +9,7 @@ RUNS_DETECT_DIR = ROOT_DIR / "runs" / "detect"
 # --- Pipeline runtime ---
 FOV_SIZE = 416
 DEBUG = True
-AIM_ASSIST = True
+AIM_ASSIST = False
 AIM_ASSIST_REQUIRE_LMB = False
 
 # --- Détection ---
@@ -25,10 +25,11 @@ MAX_SMOOTHING = 0.9
 MAGNETIC_RADIUS = 150.0
 
 # --- Data mining (FP / FN suspects) ---
-ENABLE_DATA_MINING = False
+ENABLE_DATA_MINING = True
 DATA_MINING_SAVE_DIR = DATA_DIR / "auto_collected"
 DATA_MINING_UNCERTAIN_MIN = 0.65
 DATA_MINING_UNCERTAIN_MAX = 0.85
+# FN suspect : LMB + RMB maintenus et meilleure conf < ce seuil
 DATA_MINING_FN_MAX_CONF = 0.75
 DATA_MINING_COOLDOWN_FP = 0.5
 DATA_MINING_COOLDOWN_FN = 0.3

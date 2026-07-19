@@ -24,7 +24,7 @@ def _print_status(pipeline: AimPipeline) -> None:
         print(
             f"Data mining : activé → {config.DATA_MINING_SAVE_DIR}/ "
             f"(fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f}-{config.DATA_MINING_UNCERTAIN_MAX:.2f}], "
-            f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + clic)"
+            f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + LMB+RMB)"
         )
 
     print("Pipeline découplée : capture | detect | mouse")

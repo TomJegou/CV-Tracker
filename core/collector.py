@@ -53,7 +53,10 @@ class DataCollector:
         *,
         clicking: bool,
     ) -> None:
-        """Enqueue seulement les frames utiles pour corriger FP / FN."""
+        """Enqueue seulement les frames utiles pour corriger FP / FN.
+
+        `clicking` doit être True quand LMB + RMB sont maintenus (ADS + tir).
+        """
         best_conf = max((det["conf"] for det in detections), default=0.0)
 
         if detections and any(
