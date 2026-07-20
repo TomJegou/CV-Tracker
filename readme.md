@@ -2,9 +2,9 @@
 
 ## 1. Objectif du Projet
 
-Développer un pipeline logiciel haute performance en Python capable d'analyser un flux vidéo en temps réel à l'écran, de détecter des cibles spécifiques grâce à un modèle YOLO, et de simuler des mouvements de souris fluides pour suivre ces cibles.
+Pipeline logiciel haute performance en Python capable d'analyser un flux vidéo en temps réel à l'écran, de détecter des cibles (ennemis / alliés) grâce à un modèle YOLO multiclasse, et de simuler des mouvements de souris pour suivre ces cibles.
 
-Le système vise une latence quasi nulle, un rafraîchissement supérieur à 100 FPS, et tire parti de l'accélération matérielle (NVIDIA RTX 4070).
+Le système vise une latence minimale et tire parti de l'accélération matérielle (NVIDIA RTX 4070, TensorRT).
 
 ---
 
@@ -15,139 +15,122 @@ Le système vise une latence quasi nulle, un rafraîchissement supérieur à 100
 | Langage | Python 3.10+ |
 | Hardware cible | CPU multicœur, GPU NVIDIA RTX 4070 |
 | Capture d'écran | `dxcam` (API DXGI Desktop Duplication) |
-| Inférence IA | `ultralytics` (YOLOv8) |
+| Inférence IA | `ultralytics` (YOLO), export TensorRT (`.engine`, FP16) |
 | Traitement matriciel | `numpy`, `opencv-python` |
-| Simulation d'input | API Windows via `ctypes` (`user32.mouse_event`) |
-| Annotation | CVAT ou Roboflow (export YOLO) |
+| Simulation d'input | API Windows via `ctypes` (`user32.SendInput`) |
+| Annotation | LabelImg (format YOLO) |
 
 ---
 
-## 3. Phase 1 : Pipeline Temps Réel
+## 3. Architecture du pipeline
 
-Cette phase construit l'architecture logicielle de base et la valide en conditions réelles avant d'investir dans un modèle personnalisé perfectionné.
-
-Le pipeline est découpé en modules indépendants (`/core/`), orchestrés par `main.py` :
+Le projet est découpé en modules indépendants (`core/`), orchestrés par `main.py` :
 
 | Module | Fichier | Rôle |
 |---|---|---|
-| Configuration | `config.py` | Constante partagée `FOV_SIZE` (416 px) |
-| Acquisition | `capture.py` | Capture du FOV centré via `dxcam`, sortie BGR |
-| Inférence | `detector.py` | Détection YOLO, filtrage par seuil de confiance |
-| Ciblage | `targeting.py` | Sélection de la cible la plus proche du réticule |
-| Souris | `mouse.py` | Assistance magnétique avec friction dynamique |
+| Configuration | `core/config.py` | Constantes centralisées (FOV, seuils, classes, profils d'entraînement, chemins modèles) |
+| Acquisition | `core/capture.py` | Capture du FOV centré via `dxcam`, sortie BGR |
+| Inférence | `core/detector.py` | Détection YOLO multiclasse (`ennemi` / `allie`), filtrage par seuil de confiance, rendu debug |
+| Ciblage | `core/targeting.py` | Sélection de l'ennemi le plus proche du réticule (ignore les alliés) |
+| Souris | `core/mouse.py` | Injection de mouvement via `SendInput` — mode `lock` (snap direct) ou `assist` (friction magnétique) |
+| Data mining | `core/collector.py` | Collecte asynchrone d'images utiles à l'entraînement (détections incertaines, faux positifs/négatifs suspects) |
+| Orchestration | `core/pipeline.py` | `AimPipeline` : 3 threads découplés (capture / détection / souris) reliés par des queues "dernière valeur uniquement" |
 
-### Flux d'exécution
+### Flux d'exécution (multithread, Producer-Consumer)
 
 ```
-Capture → Détection → Ciblage → Souris
+Thread capture  → frame_queue (size=1)
+Thread detect   → lit frame_queue, détecte, alimente target_queue + debug_queue + DataCollector
+Thread mouse    → lit target_queue, applique le mouvement (si AIM_ASSIST=True)
+Thread main     → lit debug_queue, affiche la fenêtre OpenCV (si DEBUG=True)
 ```
 
-Chaque module expose une API non bloquante (`get_latest_frame`, `detect`, `get_best_target`, `move`) afin de préparer une architecture *Producer-Consumer* multithreadée.
+Chaque queue est bornée à 1 élément (`put_latest`) : aucun thread n'attend sur une valeur périmée, la latence ne s'accumule jamais.
 
-### Paramètres clés
+### Paramètres clés (`core/config.py`)
 
-- **FOV :** 416×416 pixels (multiple de 32, aligné sur `imgsz` d'entraînement), défini dans `core/config.py`
-- **Confiance YOLO :** 60 % par défaut
-- **Assistance souris :** nulle au-delà de 50 px du centre, progressive à l'approche de la cible
+- **FOV :** 416×416 pixels (multiple de 32, aligné sur `imgsz` d'entraînement)
+- **Confiance YOLO :** `CONF_THRESHOLD` (0.65 par défaut)
+- **Classes :** `CLASS_NAMES = ("ennemi", "allie")`, cible d'aim = `TARGET_CLASS_ID` (0 = ennemi)
+- **Aim :** `AIM_MODE = "lock"` (snap direct, banc de test pipeline) ou `"assist"` (friction magnétique classique)
+- **Data mining :** `ENABLE_DATA_MINING`, seuils d'incertitude et cooldowns par raison de capture
 
 ### Lancement
 
 ```bash
-python main.py                      # Pipeline complet
-python -m core.capture              # Test isolé de la capture
-python -m core.detector             # Test isolé capture + détection
-python scripts/extract_frames.py    # Extraction des frames vidéo
-python scripts/auto_label.py        # Pré-annotation YOLO
-python scripts/split_dataset.py     # Split train/val
-python scripts/train.py             # Entraînement V1 (Roboflow)
-python scripts/train_v2.py          # Entraînement V2 (dataset custom)
+python main.py                        # Pipeline complet (capture + detect + [mouse] + [data mining])
+python -m core.capture                # Test isolé de la capture
+python -m core.detector               # Test isolé capture + détection
+
+python scripts/extract_frames.py      # Extraction de frames depuis des vidéos (derush/)
+python scripts/auto_label.py          # Pré-annotation YOLO des images collectées
+python scripts/split_dataset.py       # Split train/val (fusionne toutes les versions listées)
+python scripts/train.py               # Entraînement (version par défaut : TRAIN_TARGET_VERSION)
+python scripts/train.py --version v3  # Entraînement d'une version spécifique
+python scripts/train.py --list        # Liste les profils d'entraînement disponibles
+python scripts/export_engine.py       # Export TensorRT (.engine, FP16) de la version entraînée
 ```
 
-Le flag `DEBUG` dans `core/config.py` contrôle le rendu visuel :
-- `DEBUG = True` — fenêtre OpenCV avec annotations, quitte avec `q`
-- `DEBUG = False` — mode production sans `cv2.imshow`, quitte avec `Ctrl+C`
-
-Le flag `AIM_ASSIST` contrôle le déplacement de la souris :
-- `AIM_ASSIST = True` — détection + assistance magnétique
-- `AIM_ASSIST = False` — détection seule, aucun mouvement de souris
+Flags dans `core/config.py` :
+- **`DEBUG`** — `True` : fenêtre OpenCV avec annotations (quitte avec `q`) ; `False` : mode production sans rendu, `Ctrl+C` pour quitter.
+- **`AIM_ASSIST`** — `True` : le thread souris applique les mouvements ; `False` : détection seule, aucun mouvement de souris.
+- **`AIM_ASSIST_REQUIRE_LMB`** — si activé, l'aim n'agit que lorsque le clic gauche est maintenu.
+- **`ENABLE_DATA_MINING`** — active la collecte asynchrone d'images (voir section 5).
 
 ---
 
-## 4. Phase 2 : Entraînement du Modèle IA
+## 4. Entraînement du modèle IA
 
-Une fois la Phase 1 validée (performances et mouvements fluides), la Phase 2 remplace le modèle générique COCO par un modèle spécialisé sur *Apex Legends*.
+Le modèle est ré-entraîné de manière itérative, chaque version affinant la précédente (transfer learning).
 
-### Stratégie en deux temps
+| Version | Base | Dataset | Notes |
+|---|---|---|---|
+| V1 | `yolov8n.pt` (COCO) | Dataset communautaire Roboflow | Proof of concept, mono-classe |
+| V2 | V1 | `apex.yaml` (dataset custom) | Fine-tuning sur images du jeu |
+| V3 | V2 | `apex.yaml` | Modèle de prod historique |
+| V4 | V3 | `apex.yaml`, multiclasse (`ennemi`/`allie`) | Version en cours d'entraînement |
 
-#### Modèle V1 — Proof of Concept (en cours)
+Les profils (base, dataset, epochs, batch, chemin de sortie) sont définis dans `TRAIN_PROFILES` (`core/config.py`) — voir `python scripts/train.py --list`.
 
-Plutôt que d'annoter manuellement des centaines d'images dès le départ, on s'appuie sur un **dataset communautaire Roboflow** (846 images déjà annotées, classe `Player-Models`).
+`scripts/train.py` utilise `exist_ok=True` par défaut : relancer un entraînement sur une version écrase le run existant (`runs/detect/apex_model_vX/`) au lieu de créer `-2`, `-3`, etc., ce qui garantit que les chemins fixes (`V4_MODEL`, ...) dans `config.py` restent à jour. Utiliser `--fresh` pour revenir à l'ancien comportement (nouveau dossier à chaque run).
 
-- **Objectif :** entraîner rapidement une version V1 sur la RTX 4070
-- **Avantage :** tester immédiatement la logique de ciblage en conditions réelles, sans attendre un dataset parfait
+### Workflow d'entraînement itératif
 
-L'entraînement est lancé via `train.py` :
+1. **Collecte manuelle** — `scripts/extract_frames.py` extrait des frames depuis des vidéos (`data/derush/vX/`)
+2. **Collecte active (data mining)** — en jeu, `ENABLE_DATA_MINING=True` sauvegarde automatiquement les frames à confiance incertaine ou en cas de tir sans détection (voir section 5), dans `data/auto_collected/`
+3. **Annotation** — `scripts/auto_label.py` pré-annote via le meilleur modèle disponible, puis correction manuelle (LabelImg, `classes.txt`)
+4. **Split** — `scripts/split_dataset.py` fusionne les versions de `data/images_extraites/` et split 80/20 train/val
+5. **Entraînement** — `scripts/train.py --version vX`
+6. **Export production** — `scripts/export_engine.py --version vX` (TensorRT FP16)
 
-```bash
-python train.py
-```
+---
 
-| Paramètre | Valeur | Justification |
+## 5. Data mining (Active Learning)
+
+Objectif : collecter en jeu, de façon asynchrone (sans jamais ralentir la pipeline), les images les plus utiles pour corriger le modèle — pas toutes les frames.
+
+`core/collector.py` (`DataCollector`) écrit sur un thread dédié (`queue.Queue` non bornée + `cv2.imwrite`), déclenché par `AimPipeline._detect_loop` via `consider(frame, detections, clicking=...)`. Chaque raison a son propre cooldown pour éviter de saturer le disque :
+
+| Raison | Condition | But |
 |---|---|---|
-| `imgsz` | `FOV_SIZE` (416) | Cohérence entraînement / inférence |
-| `batch` | 32 | Optimisé pour la VRAM de la 4070 |
-| `patience` | 25 | Early stopping anti-overfitting |
-| Sortie | `runs/detect/apex_model_v1/weights/best.pt` | Modèle à intégrer dans `detector.py` |
-
-#### Modèle V2 — Auto-Labeling (vision long terme)
-
-Le modèle V1 sert de fondation pour construire un dataset sur-mesure sans annotation manuelle exhaustive :
-
-1. **Acquisition ciblée** — enregistrement de sessions en FOV 416×416
-2. **Pré-annotation IA** — le modèle V1 génère les bounding boxes automatiquement
-3. **Supervision humaine** — correction rapide des annotations (quelques secondes par image)
-4. **Ré-entraînement** — fine-tuning sur le dataset combiné pour un modèle V2 ultra-spécialisé
-
-### Workflow général d'entraînement
-
-1. **Collecte** — 500 à 2000 images avec variance maximale (angles, éclairage, distances)
-2. **Annotation** — bounding boxes exportées au format YOLO (`train/`, `val/`, labels `.txt`)
-3. **Transfer learning** — `yolov8n.pt` comme base, entraînement GPU FP16
-4. **Optimisation** — export TensorRT (`best.engine`) pour maximiser l'inférence en production
+| `fp_suspect` | Ennemi détecté avec confiance dans la zone incertaine | Confirmer/corriger un potentiel faux positif |
+| `ally_fp_suspect` | Allié détecté avec confiance dans la zone incertaine | Idem, côté allié (décor/ennemi mal classé) |
+| `enemy_as_ally_suspect` | Tir actif (LMB+RMB), pas d'ennemi confiant, mais un allié détecté | L'ennemi a peut-être été classé "allie" par erreur |
+| `fn_suspect` | Tir actif (LMB+RMB), aucun ennemi détecté avec assez de confiance | Faux négatif potentiel (l'IA a manqué la cible) |
 
 ---
 
-## 5. Directives de Développement
+## 6. Directives de développement
 
-- **Performance first** — éviter les copies mémoire inutiles CPU↔GPU ; privilégier `numpy` aux boucles Python natives
-- **Modularité** — découpler chaque étape via le pattern *Producer-Consumer* (`queue.Queue` ou `multiprocessing`) pour que l'inférence ne bloque pas la capture
+- **Performance first** — éviter les copies mémoire inutiles CPU↔GPU ; queues bornées à 1 élément partout dans le pipeline temps réel
+- **Modularité** — chaque étape (capture/detect/mouse/collecte) tourne sur son propre thread, découplée par `queue.Queue`
+- **Configuration centralisée** — toute constante partagée vit dans `core/config.py` (rien de codé en dur dans les modules)
 - **Développement itératif** — valider chaque module isolément (`python -m core.<module>`) avant l'assemblage dans `main.py`
-- **Configuration centralisée** — toute constante partagée (FOV, seuils, `DEBUG`, `AIM_ASSIST`) vit dans `core/config.py`
 
 ---
 
-## 6. Roadmap
+## 7. Roadmap
 
-Fonctionnalités prévues pour passer d'un prototype fonctionnel à un moteur d'assistance abouti.
-
-### Mode Production vs Debug
-
-Implémenté via `DEBUG` dans `core/config.py`. En production (`DEBUG = False`), le rendu OpenCV est désactivé pour maximiser les performances. Les évolutions ci-dessous concernent les prochaines itérations.
-
-### Activation contextuelle (Trigger & ADS)
-
-L'assistance ne s'activera que lors d'un engagement réel. Vérification d'état via `win32api.GetAsyncKeyState` : le module souris n'appliquera la friction que si le joueur maintient le clic gauche (tir) ou le clic droit (visée / ADS).
-
-### Aim-assist avancé
-
-- **Nearest Edge** — viser le pixel de la cible le plus proche du réticule plutôt que le centre de la bounding box, pour un mouvement plus naturel
-- **Easing** — courbe d'interpolation inverse : la force magnétique diminue à l'approche de la cible, évitant le jitter et redonnant le contrôle fin au joueur
-
-### Recoil Assist
-
-Dissociation des axes de lissage : `smooth_x` (horizontal, léger) et `smooth_y` (vertical, plus prononcé). Si la cible est sous le réticule (recul de l'arme), compensation verticale renforcée pour stabiliser le spray.
-
-### Ciblage stratégique (Upper-Body)
-
-- **Court terme** — offset mathématique sur l'axe Y vers les 20 % supérieurs de la bounding box
-- **Long terme (V2)** — annotations centrées sur la tête et le haut du torse lors de l'auto-labeling, pour que l'IA ignore nativement les membres inférieurs
+- **Aim-assist avancé** — Nearest Edge (viser le bord de la bbox le plus proche du réticule plutôt que le centre), easing progressif en mode `assist`
+- **Recoil Assist** — lissage dissocié par axe (`smooth_x`/`smooth_y`) pour compenser le recul vertical de l'arme
+- **Ciblage stratégique (upper-body)** — offset vertical vers le haut de la bounding box, à terme via annotation dédiée tête/torse
