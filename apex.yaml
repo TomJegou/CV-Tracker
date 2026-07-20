@@ -3,5 +3,5 @@ path: .
 train: data/dataset/train
 val: data/dataset/val
 
-nc: 1
-names: ['ennemi']
+nc: 2
+names: ['ennemi', 'allie']

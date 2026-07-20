@@ -18,6 +18,8 @@ data/derush/**
 !data/derush/v1/.gitkeep
 !data/derush/v2/
 !data/derush/v2/.gitkeep
+!data/derush/v3/
+!data/derush/v3/.gitkeep
 
 data/images_extraites/**
 !data/images_extraites/.gitkeep
@@ -27,6 +29,9 @@ data/images_extraites/**
 !data/images_extraites/v2/
 !data/images_extraites/v2/.gitkeep
 !data/images_extraites/v2/classes.txt
+!data/images_extraites/v3/
+!data/images_extraites/v3/.gitkeep
+!data/images_extraites/v3/classes.txt
 
 data/dataset/**
 !data/dataset/.gitkeep

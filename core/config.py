@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 
 # --- Chemins ---
@@ -14,7 +15,12 @@ AIM_ASSIST_REQUIRE_LMB = False
 
 # --- Détection ---
 CONF_THRESHOLD = 0.65
-AUTO_LABEL_CONF = 0.45
+AUTO_LABEL_CONF = 0.65
+# Multiclass (aligné sur apex.yaml) — id 0 = ennemi, id 1 = allie
+CLASS_NAMES = ("ennemi", "allie")
+TARGET_CLASS_ID = 0
+# Auto-label : ne pas écraser les .txt contenant déjà une box allié (classe 1)
+AUTO_LABEL_PRESERVE_CLASS_IDS = (1,)
 
 # --- Aim ---
 # "lock" = snap direct (banc de test) | "assist" = friction magnétique
@@ -35,32 +41,128 @@ DATA_MINING_COOLDOWN_FP = 0.5
 DATA_MINING_COOLDOWN_FN = 0.3
 
 # --- Dataset / entraînement ---
-DATA_VERSION = "v2"
+# v3 = nouvelles images minées ; v2 = dataset historique (inclus au split)
+DATA_VERSION = "v3"
 DERUSH_DIR = DATA_DIR / "derush" / DATA_VERSION
 IMAGES_EXTRAITES_DIR = DATA_DIR / "images_extraites" / DATA_VERSION
+IMAGES_EXTRAITES_DIRS = (
+    DATA_DIR / "images_extraites" / "v2",
+    DATA_DIR / "images_extraites" / "v3",
+)
 DATASET_TRAIN_DIR = DATA_DIR / "dataset" / "train"
 DATASET_VAL_DIR = DATA_DIR / "dataset" / "val"
-APEX_V2_YAML = ROOT_DIR / "apex_v2.yaml"
+APEX_DATASET_YAML = ROOT_DIR / "apex.yaml"
 ROBOFLOW_DATASET_YAML = DATA_DIR / "datasets_roboflow" / "apex-dataset" / "data.yaml"
 
-# --- Modèles ---
+# --- Modèles (V3 = prod actuelle, V4 = prochain entraînement) ---
 DEFAULT_YOLO_MODEL = MODELS_DIR / "yolov8n.pt"
 V1_MODEL = RUNS_DETECT_DIR / "apex_model_v1" / "weights" / "best.pt"
 V2_MODEL = RUNS_DETECT_DIR / "apex_model_v2" / "weights" / "best.pt"
 V3_MODEL = RUNS_DETECT_DIR / "apex_model_v3" / "weights" / "best.pt"
+V4_MODEL = RUNS_DETECT_DIR / "apex_model_v4" / "weights" / "best.pt"
 V2_ENGINE = V2_MODEL.with_suffix(".engine")
 V3_ENGINE = V3_MODEL.with_suffix(".engine")
+V4_ENGINE = V4_MODEL.with_suffix(".engine")
+
+# Version cible par défaut : python scripts/train.py (sans argument)
+TRAIN_TARGET_VERSION = "v4"
+
+
+@dataclass(frozen=True)
+class TrainProfile:
+    version: str
+    run_name: str
+    weights_out: Path
+    dataset_yaml: Path
+    base_chain: tuple[Path, ...]
+    epochs: int
+    batch: int
+    patience: int | None = None
+    workers: int = 4
+
+
+TRAIN_PROFILES: dict[str, TrainProfile] = {
+    "v1": TrainProfile(
+        version="v1",
+        run_name="apex_model_v1",
+        weights_out=V1_MODEL,
+        dataset_yaml=ROBOFLOW_DATASET_YAML,
+        base_chain=(DEFAULT_YOLO_MODEL,),
+        epochs=100,
+        batch=32,
+        patience=25,
+    ),
+    "v2": TrainProfile(
+        version="v2",
+        run_name="apex_model_v2",
+        weights_out=V2_MODEL,
+        dataset_yaml=APEX_DATASET_YAML,
+        base_chain=(V1_MODEL, DEFAULT_YOLO_MODEL),
+        epochs=50,
+        batch=16,
+    ),
+    "v3": TrainProfile(
+        version="v3",
+        run_name="apex_model_v3",
+        weights_out=V3_MODEL,
+        dataset_yaml=APEX_DATASET_YAML,
+        base_chain=(V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL),
+        epochs=50,
+        batch=16,
+    ),
+    "v4": TrainProfile(
+        version="v4",
+        run_name="apex_model_v4",
+        weights_out=V4_MODEL,
+        dataset_yaml=APEX_DATASET_YAML,
+        base_chain=(V3_MODEL, V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL),
+        epochs=50,
+        batch=16,
+    ),
+}
+
+
+def get_train_profile(version: str | None = None) -> TrainProfile:
+    key = (version or TRAIN_TARGET_VERSION).lower()
+    if key not in TRAIN_PROFILES:
+        available = ", ".join(sorted(TRAIN_PROFILES))
+        raise ValueError(f"Version inconnue : {key!r}. Disponibles : {available}")
+    return TRAIN_PROFILES[key]
+
+
+def resolve_train_base(profile: TrainProfile) -> Path:
+    """Premier poids disponible dans la chaîne de fine-tune du profil."""
+    for path in profile.base_chain:
+        if path.exists():
+            return path
+    return profile.base_chain[-1]
 
 
 def resolve_active_model() -> Path:
-    if V3_ENGINE.exists():
-        return V3_ENGINE
-    if V3_MODEL.exists():
-        return V3_MODEL
-    if V2_ENGINE.exists():
-        return V2_ENGINE
-    if V2_MODEL.exists():
-        return V2_MODEL
-    if V1_MODEL.exists():
-        return V1_MODEL
+    """Modèle utilisé par la pipeline runtime (V4 prioritaire si entraîné)."""
+    for path in (
+        V4_ENGINE,
+        V4_MODEL,
+        V3_ENGINE,
+        V3_MODEL,
+        V2_ENGINE,
+        V2_MODEL,
+        V1_MODEL,
+    ):
+        if path.exists():
+            return path
     return DEFAULT_YOLO_MODEL
+
+
+def resolve_prelabel_model() -> Path:
+    """Meilleur .pt disponible pour pré-annoter de nouvelles images."""
+    for path in (V3_MODEL, V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL):
+        if path.exists():
+            return path
+    return DEFAULT_YOLO_MODEL
+
+
+def resolve_train_base_model(version: str | None = None) -> Path:
+    """Poids de départ pour entraîner la version demandée (défaut : TRAIN_TARGET_VERSION)."""
+    return resolve_train_base(get_train_profile(version))
+

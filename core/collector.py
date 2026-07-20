@@ -8,12 +8,14 @@ import cv2
 import numpy as np
 
 from core.config import (
+    CLASS_NAMES,
     DATA_MINING_COOLDOWN_FN,
     DATA_MINING_COOLDOWN_FP,
     DATA_MINING_FN_MAX_CONF,
     DATA_MINING_SAVE_DIR,
     DATA_MINING_UNCERTAIN_MAX,
     DATA_MINING_UNCERTAIN_MIN,
+    TARGET_CLASS_ID,
 )
 
 
@@ -34,6 +36,10 @@ class DataCollector:
         self._cooldowns = {
             "fp_suspect": cooldown_fp,
             "fn_suspect": cooldown_fn,
+            # Allié détecté (potentiel FP ou décor / ennemi mal classé en allie)
+            "ally_fp_suspect": cooldown_fp,
+            # Tir actif mais pas d'ennemi détecté : l'ennemi pourrait être classé "allie"
+            "enemy_as_ally_suspect": cooldown_fn,
         }
         self._last_capture: dict[str, float] = {}
         self._queue: queue.Queue[tuple[np.ndarray, str]] = queue.Queue()
@@ -57,15 +63,32 @@ class DataCollector:
 
         `clicking` doit être True quand LMB + RMB sont maintenus (ADS + tir).
         """
-        best_conf = max((det["conf"] for det in detections), default=0.0)
+        enemies = [d for d in detections if d.get("class_id") == TARGET_CLASS_ID]
+        ally_class_id = CLASS_NAMES.index("allie") if "allie" in CLASS_NAMES else 1
+        allies = [d for d in detections if d.get("class_id") == ally_class_id]
+        best_enemy_conf = max((d["conf"] for d in enemies), default=0.0)
+        best_ally_conf = max((d["conf"] for d in allies), default=0.0)
 
-        if detections and any(
+        if enemies and any(
             self._uncertain_min <= det["conf"] <= self._uncertain_max
-            for det in detections
+            for det in enemies
         ):
             self._add_image(image, "fp_suspect")
 
-        if clicking and best_conf < self._fn_max_conf:
+        # Allié détecté avec une confiance "suspecte" : potentiel faux positif
+        if allies and any(
+            self._uncertain_min <= det["conf"] <= self._uncertain_max
+            for det in allies
+        ):
+            self._add_image(image, "ally_fp_suspect")
+
+        # Tir actif mais pas d'ennemi détecté : l'ennemi pourrait être classé "allie"
+        if clicking and best_enemy_conf < self._fn_max_conf and allies:
+            # On garde uniquement les cas où le modèle "pense" réellement à un allie
+            if best_ally_conf >= self._uncertain_min:
+                self._add_image(image, "enemy_as_ally_suspect")
+
+        if clicking and best_enemy_conf < self._fn_max_conf:
             self._add_image(image, "fn_suspect")
 
     def _add_image(self, image: np.ndarray, reason: str) -> None:

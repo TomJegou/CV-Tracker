@@ -28,6 +28,7 @@ def _print_status(pipeline: AimPipeline) -> None:
         )
 
     print("Pipeline découplée : capture | detect | mouse")
+    print(f"Classes : {', '.join(config.CLASS_NAMES)} — cible aim : {config.CLASS_NAMES[config.TARGET_CLASS_ID]}")
 
 
 def _run_debug_ui(pipeline: AimPipeline) -> None:
