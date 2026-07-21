@@ -41,31 +41,34 @@ DATA_MINING_COOLDOWN_FP = 0.5
 DATA_MINING_COOLDOWN_FN = 0.3
 
 # --- Dataset / entraînement ---
-# v3 = nouvelles images minées ; v2 = dataset historique (inclus au split)
-DATA_VERSION = "v3"
+# v4 = images minées avec le modèle V4 en jeu ; v2/v3 = historique (inclus au split)
+DATA_VERSION = "v4"
 DERUSH_DIR = DATA_DIR / "derush" / DATA_VERSION
 IMAGES_EXTRAITES_DIR = DATA_DIR / "images_extraites" / DATA_VERSION
 IMAGES_EXTRAITES_DIRS = (
     DATA_DIR / "images_extraites" / "v2",
     DATA_DIR / "images_extraites" / "v3",
+    DATA_DIR / "images_extraites" / "v4",
 )
 DATASET_TRAIN_DIR = DATA_DIR / "dataset" / "train"
 DATASET_VAL_DIR = DATA_DIR / "dataset" / "val"
 APEX_DATASET_YAML = ROOT_DIR / "apex.yaml"
 ROBOFLOW_DATASET_YAML = DATA_DIR / "datasets_roboflow" / "apex-dataset" / "data.yaml"
 
-# --- Modèles (V3 = prod actuelle, V4 = prochain entraînement) ---
+# --- Modèles (V4 = prod actuelle, V5 = prochain entraînement) ---
 DEFAULT_YOLO_MODEL = MODELS_DIR / "yolov8n.pt"
 V1_MODEL = RUNS_DETECT_DIR / "apex_model_v1" / "weights" / "best.pt"
 V2_MODEL = RUNS_DETECT_DIR / "apex_model_v2" / "weights" / "best.pt"
 V3_MODEL = RUNS_DETECT_DIR / "apex_model_v3" / "weights" / "best.pt"
 V4_MODEL = RUNS_DETECT_DIR / "apex_model_v4" / "weights" / "best.pt"
+V5_MODEL = RUNS_DETECT_DIR / "apex_model_v5" / "weights" / "best.pt"
 V2_ENGINE = V2_MODEL.with_suffix(".engine")
 V3_ENGINE = V3_MODEL.with_suffix(".engine")
 V4_ENGINE = V4_MODEL.with_suffix(".engine")
+V5_ENGINE = V5_MODEL.with_suffix(".engine")
 
 # Version cible par défaut : python scripts/train.py (sans argument)
-TRAIN_TARGET_VERSION = "v4"
+TRAIN_TARGET_VERSION = "v5"
 
 
 @dataclass(frozen=True)
@@ -119,6 +122,15 @@ TRAIN_PROFILES: dict[str, TrainProfile] = {
         epochs=50,
         batch=16,
     ),
+    "v5": TrainProfile(
+        version="v5",
+        run_name="apex_model_v5",
+        weights_out=V5_MODEL,
+        dataset_yaml=APEX_DATASET_YAML,
+        base_chain=(V4_MODEL, V3_MODEL, V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL),
+        epochs=50,
+        batch=16,
+    ),
 }
 
 
@@ -139,8 +151,10 @@ def resolve_train_base(profile: TrainProfile) -> Path:
 
 
 def resolve_active_model() -> Path:
-    """Modèle utilisé par la pipeline runtime (V4 prioritaire si entraîné)."""
+    """Modèle utilisé par la pipeline runtime (V5 prioritaire si entraîné)."""
     for path in (
+        V5_ENGINE,
+        V5_MODEL,
         V4_ENGINE,
         V4_MODEL,
         V3_ENGINE,
@@ -156,7 +170,7 @@ def resolve_active_model() -> Path:
 
 def resolve_prelabel_model() -> Path:
     """Meilleur .pt disponible pour pré-annoter de nouvelles images."""
-    for path in (V3_MODEL, V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL):
+    for path in (V4_MODEL, V3_MODEL, V2_MODEL, V1_MODEL, DEFAULT_YOLO_MODEL):
         if path.exists():
             return path
     return DEFAULT_YOLO_MODEL
