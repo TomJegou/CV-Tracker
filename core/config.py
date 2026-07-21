@@ -17,8 +17,6 @@ AUTO_LABEL_CONF = 0.65
 # Multiclass (aligné sur apex.yaml) — id 0 = ennemi, id 1 = allie
 CLASS_NAMES = ("ennemi", "allie")
 TARGET_CLASS_ID = 0
-# Auto-label : ne pas écraser les .txt contenant déjà une box allié (classe 1)
-AUTO_LABEL_PRESERVE_CLASS_IDS = (1,)
 
 # --- Aim ---
 # "lock" = snap direct (banc de test) | "assist" = friction magnétique

@@ -8,7 +8,6 @@ from ultralytics import YOLO
 
 from core.config import (
     AUTO_LABEL_CONF,
-    AUTO_LABEL_PRESERVE_CLASS_IDS,
     CLASS_NAMES,
 )
 from core.dataset_paths import list_auto_label_dirs
@@ -30,16 +29,9 @@ def to_yolo_lines(result) -> list[str]:
     return lines
 
 
-def label_has_preserved_class(label_path: Path) -> bool:
-    if not label_path.exists():
-        return False
-    for line in label_path.read_text(encoding="utf-8").splitlines():
-        parts = line.strip().split()
-        if not parts:
-            continue
-        if int(parts[0]) in AUTO_LABEL_PRESERVE_CLASS_IDS:
-            return True
-    return False
+def label_file_exists(label_path: Path) -> bool:
+    """Ne pas écraser un .txt déjà présent (data mining / annotation manuelle)."""
+    return label_path.exists()
 
 
 def auto_label_image(model: YOLO, image_path: Path) -> tuple[int, dict[int, int]]:
@@ -91,7 +83,7 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
 
     for index, image_path in enumerate(images, start=1):
         label_path = image_path.with_suffix(".txt")
-        if label_has_preserved_class(label_path):
+        if label_file_exists(label_path):
             preserved_count += 1
             continue
 
@@ -109,14 +101,14 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
             print(
                 f"Progression : {index}/{total_images} "
                 f"({labeled_count} avec cibles, {empty_count} vides, "
-                f"{preserved_count} préservées)"
+                f"{preserved_count} déjà labellisées)"
             )
 
     print("  Résultat :")
     print(f"    Images traitées : {total_images}")
     print(f"    Images avec cibles : {labeled_count}")
     print(f"    Images vides : {empty_count}")
-    print(f"    Préservées (allié manuel) : {preserved_count}")
+    print(f"    Déjà labellisées (ignorées) : {preserved_count}")
     for class_id, count in sorted(class_totals.items()):
         name = CLASS_NAMES[class_id] if class_id < len(CLASS_NAMES) else f"cls_{class_id}"
         print(f"    Boxes {name} : {count}")
@@ -209,7 +201,7 @@ def main() -> None:
     print(f"  Images traitées : {totals['total']}")
     print(f"  Images avec cibles : {totals['labeled']}")
     print(f"  Images vides : {totals['empty']}")
-    print(f"  Préservées (allié manuel) : {totals['preserved']}")
+    print(f"  Déjà labellisées (ignorées) : {totals['preserved']}")
 
 
 if __name__ == "__main__":
