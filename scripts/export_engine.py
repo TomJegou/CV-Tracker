@@ -6,28 +6,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from ultralytics import YOLO
 
-from core.config import FOV_SIZE, TRAIN_PROFILES, TRAIN_TARGET_VERSION, get_train_profile
+from core.config import FOV_SIZE
+from core.model_paths import resolve_export_model
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export TensorRT d'un modèle entraîné.")
     parser.add_argument(
-        "--version",
-        "-v",
-        default=TRAIN_TARGET_VERSION,
-        help=f"Version à exporter (défaut : {TRAIN_TARGET_VERSION})",
+        "--model",
+        "-m",
+        type=Path,
+        default=None,
+        help=(
+            "Chemin vers best.pt ou dossier models/apex_{NNN}. "
+            "Défaut : dernier models/apex_*/weights/best.pt"
+        ),
     )
     args = parser.parse_args()
 
-    profile = get_train_profile(args.version)
-    model_path = profile.weights_out
-    engine_path = model_path.with_suffix(".engine")
+    try:
+        model_path = resolve_export_model(model=args.model)
+    except FileNotFoundError as exc:
+        print(exc)
+        sys.exit(1)
 
-    if not model_path.exists():
-        raise FileNotFoundError(
-            f"Modèle {profile.version} introuvable : {model_path}\n"
-            f"Lance d'abord : python scripts/train.py --version {profile.version}"
-        )
+    engine_path = model_path.with_suffix(".engine")
 
     print(f"Chargement : {model_path}")
     print("Export TensorRT (FP16, workspace=4 Go)...")

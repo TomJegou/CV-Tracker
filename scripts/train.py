@@ -1,4 +1,4 @@
-"""Entraînement YOLO unifié — profils définis dans core/config.py."""
+"""Entraînement YOLO — sortie automatique dans models/apex_{NNN}/."""
 import argparse
 import sys
 from pathlib import Path
@@ -8,128 +8,129 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ultralytics import YOLO
 
 from core.config import (
+    APEX_DATASET_YAML,
     FOV_SIZE,
-    RUNS_DETECT_DIR,
-    TRAIN_PROFILES,
-    TRAIN_TARGET_VERSION,
-    TrainProfile,
-    get_train_profile,
+    MODELS_DIR,
+    TRAIN_BATCH,
+    TRAIN_EPOCHS,
+    TRAIN_PATIENCE,
+    TRAIN_WORKERS,
+)
+from core.model_paths import (
+    create_next_apex_model_dir,
+    list_apex_model_dirs,
     resolve_train_base,
+    weights_engine_path,
+    weights_pt_path,
 )
 
 
-def _print_profiles() -> None:
-    print("Profils disponibles :\n")
-    for key, profile in sorted(TRAIN_PROFILES.items()):
-        base = resolve_train_base(profile)
-        default = " (défaut)" if key == TRAIN_TARGET_VERSION else ""
-        print(f"  {key}{default}")
-        print(f"    run      : {profile.run_name}")
-        print(f"    base     : {base}")
-        print(f"    dataset  : {profile.dataset_yaml}")
-        print(f"    sortie   : {profile.weights_out}")
-        print(f"    epochs   : {profile.epochs} | batch : {profile.batch}")
+def _print_models() -> None:
+    dirs = list_apex_model_dirs()
+    if not dirs:
+        print("Aucun modèle models/apex_{NNN}/ trouvé.")
+        return
+
+    print("Modèles disponibles :\n")
+    for model_dir in dirs:
+        pt_path = weights_pt_path(model_dir)
+        engine_path = weights_engine_path(model_dir)
+        pt_status = "OK" if pt_path.exists() else "manquant"
+        engine_status = "OK" if engine_path.exists() else "—"
+        print(f"  {model_dir.name}/")
+        print(f"    best.pt     : {pt_status}  ({pt_path})")
+        print(f"    best.engine : {engine_status}")
         print()
 
 
-def _build_train_kwargs(profile: TrainProfile, overrides: argparse.Namespace) -> dict:
-    kwargs: dict = {
-        "data": str(profile.dataset_yaml),
-        "epochs": overrides.epochs if overrides.epochs is not None else profile.epochs,
-        "imgsz": FOV_SIZE,
-        "batch": overrides.batch if overrides.batch is not None else profile.batch,
-        "device": overrides.device,
-        "project": str(RUNS_DETECT_DIR),
-        "name": profile.run_name,
-        "workers": overrides.workers if overrides.workers is not None else profile.workers,
-        # Sans ça, Ultralytics crée apex_model_v4-2, -3, ... à chaque relance et
-        # les chemins fixes (V4_MODEL, etc.) dans config.py restent bloqués sur le 1er run.
-        "exist_ok": overrides.exist_ok,
-    }
-    patience = overrides.patience if overrides.patience is not None else profile.patience
-    if patience is not None:
-        kwargs["patience"] = patience
-    return kwargs
-
-
 def run_train(
-    version: str | None = None,
     *,
+    base: Path | None = None,
+    dataset_yaml: Path = APEX_DATASET_YAML,
     epochs: int | None = None,
     batch: int | None = None,
     patience: int | None = None,
     workers: int | None = None,
     device: int = 0,
-    exist_ok: bool = True,
 ) -> Path:
-    profile = get_train_profile(version)
-    base_path = resolve_train_base(profile)
+    base_path = resolve_train_base(base=base)
+    if not dataset_yaml.exists():
+        raise FileNotFoundError(f"Dataset introuvable : {dataset_yaml}")
 
-    if not profile.dataset_yaml.exists():
-        raise FileNotFoundError(f"Dataset introuvable : {profile.dataset_yaml}")
+    run_dir = create_next_apex_model_dir()
+    train_kwargs = {
+        "data": str(dataset_yaml),
+        "epochs": epochs if epochs is not None else TRAIN_EPOCHS,
+        "imgsz": FOV_SIZE,
+        "batch": batch if batch is not None else TRAIN_BATCH,
+        "device": device,
+        "project": str(MODELS_DIR),
+        "name": run_dir.name,
+        "workers": workers if workers is not None else TRAIN_WORKERS,
+        "exist_ok": True,
+    }
+    patience_value = patience if patience is not None else TRAIN_PATIENCE
+    if patience_value is not None:
+        train_kwargs["patience"] = patience_value
 
-    overrides = argparse.Namespace(
-        epochs=epochs,
-        batch=batch,
-        patience=patience,
-        workers=workers,
-        device=device,
-        exist_ok=exist_ok,
-    )
-    train_kwargs = _build_train_kwargs(profile, overrides)
+    weights_out = weights_pt_path(run_dir)
 
-    print(f"Version    : {profile.version}")
+    print(f"Run        : {run_dir.name}")
     print(f"Modèle base: {base_path}")
-    print(f"Dataset    : {profile.dataset_yaml}")
-    print(f"Run        : {profile.run_name}" + ("" if exist_ok else " (nouveau dossier -N)"))
+    print(f"Dataset    : {dataset_yaml}")
+    print(f"Sortie     : {weights_out}")
     print(f"Hyperparams: epochs={train_kwargs['epochs']}, batch={train_kwargs['batch']}")
     print()
 
     model = YOLO(str(base_path))
     model.train(**train_kwargs)
 
-    print(f"\nEntraînement terminé ! Modèle : {profile.weights_out}")
-    return profile.weights_out
+    print(f"\nEntraînement terminé ! Modèle : {weights_out}")
+    return weights_out
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Entraîne un modèle Apex (profils dans core/config.py).",
+        description="Entraîne un modèle Apex (sortie models/apex_{NNN}/).",
     )
     parser.add_argument(
-        "--version",
-        "-v",
-        default=TRAIN_TARGET_VERSION,
-        help=f"Version à entraîner (défaut config : {TRAIN_TARGET_VERSION})",
+        "--list",
+        "-l",
+        action="store_true",
+        help="Lister les modèles models/apex_*",
     )
-    parser.add_argument("--list", "-l", action="store_true", help="Lister les profils")
+    parser.add_argument(
+        "--base",
+        "-b",
+        type=Path,
+        default=None,
+        help="Poids de départ (.pt). Défaut : dernier apex_*/best.pt ou yolov8n.pt",
+    )
+    parser.add_argument(
+        "--data",
+        type=Path,
+        default=APEX_DATASET_YAML,
+        help=f"Dataset YAML (défaut : {APEX_DATASET_YAML})",
+    )
     parser.add_argument("--epochs", type=int, default=None, help="Override epochs")
     parser.add_argument("--batch", type=int, default=None, help="Override batch")
     parser.add_argument("--patience", type=int, default=None, help="Override patience")
     parser.add_argument("--workers", type=int, default=None, help="Override workers")
     parser.add_argument("--device", type=int, default=0, help="GPU device (défaut 0)")
-    parser.add_argument(
-        "--fresh",
-        action="store_true",
-        help=(
-            "Ne pas écraser le run existant : Ultralytics crée un nouveau dossier "
-            "(apex_model_vX-2, -3, ...) au lieu de réutiliser le même."
-        ),
-    )
     args = parser.parse_args()
 
     if args.list:
-        _print_profiles()
+        _print_models()
         return
 
     run_train(
-        args.version,
+        base=args.base,
+        dataset_yaml=args.data,
         epochs=args.epochs,
         batch=args.batch,
         patience=args.patience,
         workers=args.workers,
         device=args.device,
-        exist_ok=not args.fresh,
     )
 
 

@@ -1,4 +1,6 @@
+import argparse
 import time
+from pathlib import Path
 
 import cv2
 
@@ -20,15 +22,18 @@ def _print_status(pipeline: AimPipeline) -> None:
     else:
         print("Aim : désactivé (détection seule)")
 
-    if config.ENABLE_DATA_MINING:
+    if config.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
         print(
-            f"Data mining : activé → {config.DATA_MINING_SAVE_DIR}/ "
+            f"Data mining : activé → {pipeline.data_mining_dir}/ "
             f"(fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f}-{config.DATA_MINING_UNCERTAIN_MAX:.2f}], "
             f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + LMB+RMB)"
         )
 
     print("Pipeline découplée : capture | detect | mouse")
-    print(f"Classes : {', '.join(config.CLASS_NAMES)} — cible aim : {config.CLASS_NAMES[config.TARGET_CLASS_ID]}")
+    print(
+        f"Classes : {', '.join(config.CLASS_NAMES)} — "
+        f"cible aim : {config.CLASS_NAMES[config.TARGET_CLASS_ID]}"
+    )
 
 
 def _run_debug_ui(pipeline: AimPipeline) -> None:
@@ -56,7 +61,25 @@ def _run_debug_ui(pipeline: AimPipeline) -> None:
 
 
 def main() -> None:
-    pipeline = AimPipeline.create()
+    parser = argparse.ArgumentParser(description="Pipeline CV-Tracker.")
+    parser.add_argument(
+        "--model",
+        "-m",
+        type=Path,
+        default=None,
+        help=(
+            "Chemin modèle (.pt / .engine). "
+            "Défaut : dernier models/apex_* (.engine prioritaire)"
+        ),
+    )
+    args = parser.parse_args()
+
+    try:
+        pipeline = AimPipeline.create(model_path=args.model)
+    except FileNotFoundError as exc:
+        print(exc)
+        return
+
     _print_status(pipeline)
     pipeline.start()
 

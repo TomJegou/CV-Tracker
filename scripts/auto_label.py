@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -9,9 +10,9 @@ from core.config import (
     AUTO_LABEL_CONF,
     AUTO_LABEL_PRESERVE_CLASS_IDS,
     CLASS_NAMES,
-    IMAGES_EXTRAITES_DIR,
-    resolve_prelabel_model,
 )
+from core.dataset_paths import list_auto_label_dirs
+from core.model_paths import resolve_prelabel_model
 
 
 def to_yolo_lines(result) -> list[str]:
@@ -64,32 +65,24 @@ def auto_label_image(model: YOLO, image_path: Path) -> tuple[int, dict[int, int]
     return len(lines), per_class
 
 
-def main() -> None:
-    model_path = resolve_prelabel_model()
-    model = YOLO(str(model_path))
-    model_nc = len(model.names) if hasattr(model, "names") else 1
-
-    all_images = sorted(IMAGES_EXTRAITES_DIR.glob("*.jpg"))
+def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
+    all_images = sorted(source_dir.glob("*.jpg"))
     images = [img for img in all_images if not img.name.startswith("FAUX_POSITIF_")]
-    skipped_fp = len(all_images) - len(images)
     total_images = len(images)
 
-    print(f"Modèle chargé : {model_path}")
-    print(f"Classes dataset : {', '.join(CLASS_NAMES)} (nc={len(CLASS_NAMES)})")
-    print(f"Classes modèle  : nc={model_nc}")
-    if model_nc < len(CLASS_NAMES):
-        print(
-            "  ⚠ Modèle mono-classe : auto-label ne produira que class_id=0 (ennemi). "
-            "Annoter les alliés à la main (classe 1)."
-        )
-    print(f"Dossier : {IMAGES_EXTRAITES_DIR}/")
+    print(f"\nDossier : {source_dir}/")
     print(f"{len(all_images)} image(s) trouvée(s)")
-    if skipped_fp:
-        print(f"{skipped_fp} faux positif(s) ignoré(s) (FAUX_POSITIF_*)")
+    if len(all_images) != total_images:
+        print(f"{len(all_images) - total_images} faux positif(s) ignoré(s) (FAUX_POSITIF_*)")
 
     if not images:
         print("Aucune image .jpg à traiter.")
-        return
+        return {
+            "total": 0,
+            "labeled": 0,
+            "empty": 0,
+            "preserved": 0,
+        }
 
     labeled_count = 0
     empty_count = 0
@@ -119,15 +112,104 @@ def main() -> None:
                 f"{preserved_count} préservées)"
             )
 
-    print("\nAuto-labeling terminé.")
-    print(f"  Images traitées : {total_images}")
-    print(f"  Images avec cibles : {labeled_count}")
-    print(f"  Images vides : {empty_count}")
-    print(f"  Préservées (allié manuel) : {preserved_count}")
+    print("  Résultat :")
+    print(f"    Images traitées : {total_images}")
+    print(f"    Images avec cibles : {labeled_count}")
+    print(f"    Images vides : {empty_count}")
+    print(f"    Préservées (allié manuel) : {preserved_count}")
     for class_id, count in sorted(class_totals.items()):
         name = CLASS_NAMES[class_id] if class_id < len(CLASS_NAMES) else f"cls_{class_id}"
-        print(f"  Boxes {name} : {count}")
-    print(f"  Labels sauvegardés dans {IMAGES_EXTRAITES_DIR}/")
+        print(f"    Boxes {name} : {count}")
+
+    return {
+        "total": total_images,
+        "labeled": labeled_count,
+        "empty": empty_count,
+        "preserved": preserved_count,
+    }
+
+
+def resolve_source_dirs(*, dirs: list[Path] | None, latest_only: bool) -> list[Path]:
+    if dirs:
+        source_dirs: list[Path] = []
+        for path in dirs:
+            resolved = path.expanduser().resolve()
+            if not resolved.is_dir():
+                raise FileNotFoundError(f"Dossier introuvable : {resolved}")
+            source_dirs.append(resolved)
+        return source_dirs
+
+    source_dirs = list_auto_label_dirs(latest_only=latest_only)
+    if not source_dirs:
+        raise FileNotFoundError(
+            "Aucune session data_mining_* trouvée dans data/images_extraites/. "
+            "Lance la pipeline avec ENABLE_DATA_MINING=True, ou passe --dir."
+        )
+    return source_dirs
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Pré-annotation YOLO des sessions data_mining_*.",
+    )
+    parser.add_argument(
+        "--dir",
+        "-d",
+        type=Path,
+        action="append",
+        dest="dirs",
+        help="Dossier source explicite (répétable). Remplace la découverte auto data_mining_*.",
+    )
+    parser.add_argument(
+        "--model",
+        "-m",
+        type=Path,
+        default=None,
+        help="Modèle .pt pour pré-annoter. Défaut : dernier models/apex_*/best.pt",
+    )
+    parser.add_argument(
+        "--latest",
+        action="store_true",
+        help="Traiter uniquement la dernière session data_mining_{NNN} (ignoré si --dir)",
+    )
+    args = parser.parse_args()
+
+    try:
+        source_dirs = resolve_source_dirs(dirs=args.dirs, latest_only=args.latest)
+    except FileNotFoundError as exc:
+        print(exc)
+        return
+
+    try:
+        model_path = resolve_prelabel_model(model=args.model)
+    except FileNotFoundError as exc:
+        print(exc)
+        return
+    model = YOLO(str(model_path))
+    model_nc = len(model.names) if hasattr(model, "names") else 1
+
+    print(f"Modèle chargé : {model_path}")
+    print(f"Classes dataset : {', '.join(CLASS_NAMES)} (nc={len(CLASS_NAMES)})")
+    print(f"Classes modèle  : nc={model_nc}")
+    if model_nc < len(CLASS_NAMES):
+        print(
+            "  ⚠ Modèle mono-classe : auto-label ne produira que class_id=0 (ennemi). "
+            "Annoter les alliés à la main (classe 1)."
+        )
+    print(f"Sessions à traiter : {len(source_dirs)}")
+
+    totals = {"total": 0, "labeled": 0, "empty": 0, "preserved": 0}
+    for source_dir in source_dirs:
+        stats = process_directory(model, source_dir)
+        for key in totals:
+            totals[key] += stats[key]
+
+    print("\nAuto-labeling terminé.")
+    print(f"  Sessions : {len(source_dirs)}")
+    print(f"  Images traitées : {totals['total']}")
+    print(f"  Images avec cibles : {totals['labeled']}")
+    print(f"  Images vides : {totals['empty']}")
+    print(f"  Préservées (allié manuel) : {totals['preserved']}")
 
 
 if __name__ == "__main__":

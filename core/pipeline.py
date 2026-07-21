@@ -1,6 +1,7 @@
 import queue
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
@@ -68,9 +69,9 @@ class AimPipeline:
         self._threads: list[threading.Thread] = []
 
     @classmethod
-    def create(cls) -> "AimPipeline":
+    def create(cls, model_path: Path | str | None = None) -> "AimPipeline":
         capture = ScreenCapture()
-        detector = YoloDetector()
+        detector = YoloDetector(model_path=model_path)
         targeting = TargetingSystem()
         mouse = MouseController() if config.AIM_ASSIST else None
         collector = DataCollector() if config.ENABLE_DATA_MINING else None
@@ -79,6 +80,10 @@ class AimPipeline:
     @property
     def detector(self) -> YoloDetector:
         return self._detector
+
+    @property
+    def data_mining_dir(self) -> Path | None:
+        return self._collector.save_dir if self._collector is not None else None
 
     def start(self) -> None:
         if self._threads:

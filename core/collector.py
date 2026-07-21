@@ -12,24 +12,24 @@ from core.config import (
     DATA_MINING_COOLDOWN_FN,
     DATA_MINING_COOLDOWN_FP,
     DATA_MINING_FN_MAX_CONF,
-    DATA_MINING_SAVE_DIR,
     DATA_MINING_UNCERTAIN_MAX,
     DATA_MINING_UNCERTAIN_MIN,
     TARGET_CLASS_ID,
 )
+from core.dataset_paths import create_data_mining_session_dir
 
 
 class DataCollector:
     def __init__(
         self,
-        save_dir: Path = DATA_MINING_SAVE_DIR,
+        save_dir: Path | None = None,
         uncertain_min: float = DATA_MINING_UNCERTAIN_MIN,
         uncertain_max: float = DATA_MINING_UNCERTAIN_MAX,
         fn_max_conf: float = DATA_MINING_FN_MAX_CONF,
         cooldown_fp: float = DATA_MINING_COOLDOWN_FP,
         cooldown_fn: float = DATA_MINING_COOLDOWN_FN,
     ):
-        self._save_dir = Path(save_dir)
+        self._save_dir = Path(save_dir) if save_dir else create_data_mining_session_dir()
         self._uncertain_min = uncertain_min
         self._uncertain_max = uncertain_max
         self._fn_max_conf = fn_max_conf
@@ -51,6 +51,10 @@ class DataCollector:
             daemon=True,
         )
         self._worker.start()
+
+    @property
+    def save_dir(self) -> Path:
+        return self._save_dir
 
     def consider(
         self,

@@ -37,18 +37,20 @@ data/images_extraites/**
 !data/images_extraites/v4/
 !data/images_extraites/v4/.gitkeep
 !data/images_extraites/v4/classes.txt
+!data/images_extraites/data_mining_*/
+!data/images_extraites/data_mining_*/classes.txt
 
 data/dataset/**
 !data/dataset/.gitkeep
 data/datasets_roboflow/**
 !data/datasets_roboflow/.gitkeep
-data/auto_collected/**
-!data/auto_collected/.gitkeep
 data/images_extraites.zip
 
 # Modèles et runs
 models/**
 !models/.gitkeep
+!models/apex_*/
+!models/apex_*/.gitkeep
 runs/
 *.pt
 *.engine

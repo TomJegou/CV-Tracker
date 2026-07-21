@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -5,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import cv2
 
-from core.config import DERUSH_DIR, FOV_SIZE, IMAGES_EXTRAITES_DIR
+from core.config import FOV_SIZE
+from core.dataset_paths import create_manual_extract_dir, default_derush_dir
 
 
 def crop_center(frame, fov_size: int = FOV_SIZE):
@@ -66,11 +68,28 @@ def extract_from_video(video_path: Path, output_dir: Path) -> int:
 
 
 def main() -> None:
-    output_dir = IMAGES_EXTRAITES_DIR
+    parser = argparse.ArgumentParser(description="Extraction de frames depuis des vidéos derush.")
+    parser.add_argument(
+        "--derush",
+        type=Path,
+        default=None,
+        help="Dossier source des .mp4 (défaut : dernier data/derush/vN/)",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Dossier de sortie (défaut : prochain data/images_extraites/vN/)",
+    )
+    args = parser.parse_args()
+
+    derush_dir = args.derush or default_derush_dir()
+    output_dir = args.output or create_manual_extract_dir()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    videos = sorted(DERUSH_DIR.glob("*.mp4"))
-    print(f"{len(videos)} vidéo(s) trouvée(s) dans {DERUSH_DIR}/")
+    videos = sorted(derush_dir.glob("*.mp4"))
+    print(f"{len(videos)} vidéo(s) trouvée(s) dans {derush_dir}/")
+    print(f"Sortie : {output_dir}/")
 
     if not videos:
         print("Aucune vidéo .mp4 à traiter.")

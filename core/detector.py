@@ -5,7 +5,8 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
-from core.config import CLASS_NAMES, CONF_THRESHOLD, TARGET_CLASS_ID, resolve_active_model
+from core.config import CLASS_NAMES, CONF_THRESHOLD, TARGET_CLASS_ID
+from core.model_paths import resolve_active_model
 
 # BGR — ennemi vert, allié bleu
 DEBUG_CLASS_COLORS = {
@@ -20,7 +21,7 @@ class YoloDetector:
         model_path: str | Path | None = None,
         conf_threshold: float = CONF_THRESHOLD,
     ):
-        self.model_path = Path(model_path) if model_path else resolve_active_model()
+        self.model_path = resolve_active_model(model=Path(model_path) if model_path else None)
         self._is_engine = self.model_path.suffix == ".engine"
         self.conf_threshold = conf_threshold
         self._model = YOLO(str(self.model_path))
