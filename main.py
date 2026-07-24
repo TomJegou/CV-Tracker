@@ -3,8 +3,10 @@ import time
 from pathlib import Path
 
 import cv2
+from serial import SerialException
 
 from core import config
+from core.mouse import close_arduino_mouse
 from core.pipeline import AimPipeline
 
 
@@ -74,25 +76,28 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    pipeline: AimPipeline | None = None
     try:
         pipeline = AimPipeline.create(model_path=args.model)
-    except FileNotFoundError as exc:
-        print(exc)
-        return
+        _print_status(pipeline)
+        pipeline.start()
 
-    _print_status(pipeline)
-    pipeline.start()
-
-    try:
         if config.DEBUG:
             _run_debug_ui(pipeline)
         else:
             while True:
                 time.sleep(0.1)
+    except FileNotFoundError as exc:
+        print(exc)
+    except SerialException as exc:
+        print(exc)
     except KeyboardInterrupt:
         pass
     finally:
-        pipeline.stop()
+        if pipeline is not None:
+            pipeline.stop()
+        else:
+            close_arduino_mouse()
         if config.DEBUG:
             cv2.destroyAllWindows()
 

@@ -9,7 +9,8 @@ from core import config
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, is_ads_and_firing, is_left_mouse_pressed
+from core.mouse import MouseController
+from core.keys import is_ads_and_firing, is_left_mouse_pressed
 from core.targeting import TargetingSystem
 
 
@@ -89,6 +90,9 @@ class AimPipeline:
         if self._threads:
             return
 
+        if self._aim_assist and self._mouse is not None:
+            self._mouse.open()
+
         workers = [
             ("capture", self._capture_loop),
             ("detect", self._detect_loop),
@@ -108,6 +112,8 @@ class AimPipeline:
             thread.join(timeout=1.0)
         self._threads.clear()
         self._capture.release()
+        if self._mouse is not None:
+            self._mouse.close()
 
     def get_debug_frame(self, timeout: float = 0.05) -> DebugFrame | None:
         try:
@@ -131,7 +137,8 @@ class AimPipeline:
 
             detections = self._detector.detect(frame)
             best_target = self._targeting.get_best_target(detections)
-            put_latest(self._target_queue, best_target)
+            if self._aim_assist and self._mouse is not None:
+                put_latest(self._target_queue, best_target)
 
             if self._enable_data_mining and self._collector is not None:
                 self._collector.consider(

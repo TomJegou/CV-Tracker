@@ -8,7 +8,7 @@ MODELS_DIR = ROOT_DIR / "models"
 # --- Pipeline runtime ---
 FOV_SIZE = 416
 DEBUG = True
-AIM_ASSIST = False
+AIM_ASSIST = True
 AIM_ASSIST_REQUIRE_LMB = False
 
 # --- Détection ---
@@ -26,8 +26,17 @@ AIM_DEBUG_MOVES = True
 MAX_SMOOTHING = 0.9
 MAGNETIC_RADIUS = 150.0
 
+# --- Arduino Leonardo (injection HID via Serial) ---
+ARDUINO_PORT = "COM5"
+ARDUINO_BAUD = 115200
+# Pause à l'ouverture du port (reset CDC Leonardo). 0 pour skip.
+ARDUINO_SETTLE_S = 2.0
+# Windows garde souvent le COM verrouillé ~1–3 s après Ctrl+C / fermeture.
+ARDUINO_OPEN_RETRIES = 8
+ARDUINO_OPEN_RETRY_S = 0.4
+
 # --- Data mining (FP / FN suspects) ---
-ENABLE_DATA_MINING = True
+ENABLE_DATA_MINING = False
 DATA_MINING_UNCERTAIN_MIN = 0.65
 DATA_MINING_UNCERTAIN_MAX = 0.85
 # FN suspect : LMB + RMB maintenus et meilleure conf < ce seuil
