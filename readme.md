@@ -1,105 +1,148 @@
-# CV-Tracker : Computer Vision Real-Time Tracking & Automation
+# CV-Tracker — Computer Vision Real-Time Tracking
 
-## 1. Objectif du Projet
-
-Pipeline logiciel haute performance en Python capable d'analyser un flux vidéo en temps réel à l'écran, de détecter des cibles (ennemis / alliés) grâce à un modèle YOLO multiclasse, et de simuler des mouvements de souris pour suivre ces cibles.
-
-Le système vise une latence minimale et tire parti de l'accélération matérielle (NVIDIA RTX 4070, TensorRT).
+Pipeline Python basse latence : capture FOV écran → YOLO multiclasse → ciblage → injection souris via **Arduino Leonardo** (HID hardware, pas `SendInput`).
 
 ---
 
-## 2. Stack Technique
+## 1. Objectif
+
+Analyser le centre de l’écran en temps réel, détecter des cibles (`ennemi` / `allie`), et optionnellement appliquer des deltas de souris fusionnés avec la souris physique sur un Leonardo + USB Host Shield.
+
+Cible perf : queues bornées, GPU NVIDIA (YOLO / TensorRT FP16).
+
+---
+
+## 2. Stack
 
 | Composant | Technologie |
 |---|---|
 | Langage | Python 3.10+ |
-| Hardware cible | CPU multicœur, GPU NVIDIA RTX 4070 |
-| Capture d'écran | `dxcam` (API DXGI Desktop Duplication) |
-| Inférence IA | `ultralytics` (YOLO), export TensorRT (`.engine`, FP16) |
-| Traitement matriciel | `numpy`, `opencv-python` |
-| Simulation d'input | API Windows via `ctypes` (`user32.SendInput`) |
-| Annotation | LabelImg (format YOLO) |
+| Capture | `dxcam` (DXGI Desktop Duplication) |
+| Inférence | Ultralytics YOLO → export TensorRT (`.engine`) |
+| Aim (PC) | `pyserial` → protocole `<dx,dy>\n` @ 115200 |
+| Aim (firmware) | Arduino Leonardo + USB Host Shield → `Mouse.h` |
+| Annotation | LabelImg (YOLO) |
 
 ---
 
-## 3. Architecture du pipeline
+## 3. Matériel aim (requis si `AIM_ASSIST=True`)
 
-Le projet est découpé en modules indépendants (`core/`), orchestrés par `main.py` :
+1. Arduino **Leonardo** (ATmega32U4, HID natif)
+2. **USB Host Shield** (compatible)
+3. Souris physique branchée sur le shield (Superlight **filaire** recommandé)
+4. Leonardo branché en USB au PC (port COM Windows)
+
+Flash **uniquement** : [`arduino/mouse_fusion/mouse_fusion.ino`](arduino/mouse_fusion/mouse_fusion.ino)
+
+> `arduino/serial_mouse/` est un prototype obsolète (parse le Serial mais n’appelle pas `Mouse.move`).
+
+Test rapide sans pipeline :
+
+```bash
+python scripts/arduino_serial_test.py --list
+python scripts/arduino_serial_test.py --port COM5
+```
+
+---
+
+## 4. Architecture
 
 | Module | Fichier | Rôle |
 |---|---|---|
-| Configuration | `core/config.py` | Constantes runtime (FOV, seuils, classes, hyperparams train) |
-| Chemins dataset | `core/dataset_paths.py` | Découverte dynamique `v*` / `data_mining_{NNN}` |
-| Chemins modèles | `core/model_paths.py` | Découverte dynamique `models/apex_{NNN}/` |
-| Acquisition | `core/capture.py` | Capture du FOV centré via `dxcam`, sortie BGR |
-| Inférence | `core/detector.py` | Détection YOLO multiclasse (`ennemi` / `allie`), rendu debug |
-| Ciblage | `core/targeting.py` | Sélection de l'ennemi le plus proche du réticule |
-| Souris | `core/mouse.py` | Injection via `SendInput` — mode `lock` ou `assist` |
-| Data mining | `core/collector.py` | Collecte asynchrone FP/FN suspects → `data_mining_{NNN}/` |
-| Orchestration | `core/pipeline.py` | 3 threads (capture / detect / mouse) + queues size=1 |
-
-### Flux d'exécution
+| Config | `core/config.py` | FOV, flags, seuils, COM Arduino, train |
+| Chemins dataset | `core/dataset_paths.py` | `v*` / `data_mining_{NNN}` |
+| Chemins modèles | `core/model_paths.py` | `models/apex_{NNN}/` |
+| Capture | `core/capture.py` | FOV centré via dxcam (BGR) |
+| Inférence | `core/detector.py` | YOLO multiclasse + debug draw |
+| Ciblage | `core/targeting.py` | Ennemi le plus proche du réticule |
+| Touches | `core/keys.py` | État LMB/RMB (`GetAsyncKeyState`) |
+| Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist`) |
+| Data mining | `core/collector.py` | FP/FN suspects → `data_mining_{NNN}/` |
+| Pipeline | `core/pipeline.py` | Threads capture / detect / mouse |
 
 ```
 Thread capture  → frame_queue (size=1)
-Thread detect   → détection + target_queue + debug_queue + DataCollector
-Thread mouse    → mouvement (si AIM_ASSIST=True)
-Thread main     → fenêtre OpenCV (si DEBUG=True)
+Thread detect   → YOLO + targeting + (mining) + debug_queue
+Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST]
+Thread main     → fenêtre OpenCV                      [si DEBUG]
 ```
 
-### Lancement
+Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
+Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
+
+---
+
+## 5. Configuration (`core/config.py`)
+
+| Flag | Effet |
+|---|---|
+| `DEBUG` | Fenêtre OpenCV + overlays |
+| `AIM_ASSIST` | Ouvre le COM et démarre le thread mouse |
+| `AIM_ASSIST_REQUIRE_LMB` | Aim seulement si clic gauche maintenu |
+| `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
+| `AIM_DEBUG_MOVES` | Log stdout des SNAP |
+| `ENABLE_DATA_MINING` | Collecte async FP/FN |
+| `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
+| `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
+| `ARDUINO_OPEN_RETRIES` | Relances si COM verrouillé (Ctrl+C) |
+
+Defaults runtime = préférences machine : vérifier `ARDUINO_PORT`, et désactiver `AIM_ASSIST` / `DEBUG` si tu lances sans Leonardo.
+
+---
+
+## 6. Lancement
 
 ```bash
 python main.py                              # Dernier models/apex_* (.engine prioritaire)
-python main.py --model path/to/best.pt      # Override modèle
+python main.py --model path/to/best.pt      # Override
 
 python scripts/extract_frames.py            # Derush → prochain images_extraites/vN/
-python scripts/auto_label.py                # Pré-anno des data_mining_*
-python scripts/auto_label.py --latest       # Dernière session seulement
-python scripts/auto_label.py -d chemin/     # Dossier explicite
+python scripts/auto_label.py                # Pré-anno (skip si .txt déjà présent)
+python scripts/auto_label.py --latest
 python scripts/split_dataset.py             # Fusionne v* + data_mining_* → train/val
-python scripts/split_dataset.py -d chemin/  # Sources explicites
-python scripts/train.py                     # Crée models/apex_{NNN}/ (base = dernier best.pt)
+python scripts/train.py                     # Crée models/apex_{NNN}/
 python scripts/train.py --list
-python scripts/train.py --base path/best.pt
-python scripts/export_engine.py             # Export TensorRT du dernier apex_*
-python scripts/export_engine.py -m models/apex_004
+python scripts/export_engine.py             # TensorRT du dernier apex_*
 ```
 
-Flags dans `core/config.py` : `DEBUG`, `AIM_ASSIST`, `AIM_ASSIST_REQUIRE_LMB`, `ENABLE_DATA_MINING`, `AIM_MODE`.
+Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester verrouillé ~1–3 s ; l’ouverture retente automatiquement.
 
 ---
 
-## 4. Entraînement
+## 7. Workflow entraînement
 
-Les poids vivent sous `models/apex_{NNN}/weights/best.pt` (+ `best.engine` après export).  
-Chaque `python scripts/train.py` crée le prochain index et fine-tune depuis le dernier `best.pt` disponible (sinon `yolov8n.pt`).
-
-### Workflow
-
-1. **Data mining** — pipeline avec `ENABLE_DATA_MINING=True` → `data/images_extraites/data_mining_{NNN}/`
-2. **Auto-label** — `python scripts/auto_label.py` puis correction LabelImg
+1. **Data mining** — `ENABLE_DATA_MINING=True` → `data/images_extraites/data_mining_{NNN}/`  
+   Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
+2. **Correction** — LabelImg sur la session (ou supprimer les `.txt` puis `auto_label.py` pour régénérer une pré-anno)
 3. **Split** — `python scripts/split_dataset.py`
-4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/`
+4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
 5. **Export** — `python scripts/export_engine.py`
 
----
-
-## 5. Data mining (Active Learning)
-
-`DataCollector` écrit en async dans une nouvelle session `data_mining_{NNN}/` à chaque lancement de pipeline.
+### Data mining — raisons
 
 | Raison | Condition |
 |---|---|
-| `fp_suspect` | Ennemi conf. dans la zone incertaine |
-| `ally_fp_suspect` | Allié conf. dans la zone incertaine |
-| `enemy_as_ally_suspect` | Tir (LMB+RMB), pas d'ennemi confiant, allié détecté |
-| `fn_suspect` | Tir (LMB+RMB), ennemi conf. trop basse |
+| `fp_suspect` | Ennemi conf. dans la bande incertaine |
+| `ally_fp_suspect` | Allié conf. dans la bande incertaine |
+| `enemy_as_ally_suspect` | Tir (LMB+RMB), pas d’ennemi confiant, allié détecté |
+| `fn_suspect` | Tir (LMB+RMB), conf. ennemi trop basse |
 
 ---
 
-## 6. Directives
+## 8. Dépannage aim
 
-- Performance first — queues bornées à 1, pas d'I/O dans la boucle detect
-- Config = seuils / flags ; chemins versionnés = découverte dynamique
-- Valider chaque module isolément (`python -m core.<module>`) avant assemblage
+| Symptôme | Piste |
+|---|---|
+| `PermissionError` / accès refusé sur COMx | Attendre 2–3 s après Ctrl+C ; fermer le Moniteur Série Arduino |
+| Souris morte / pas de fusion | Sketch `mouse_fusion` flashé ? Host Shield OK ? Souris sur le shield ? |
+| Python envoie des SNAP mais rien en jeu | Mauvais `ARDUINO_PORT` ; tester avec `arduino_serial_test.py` |
+| COM change après reset Leonardo | Vérifier le Gestionnaire de périphériques → mettre à jour `ARDUINO_PORT` |
+
+---
+
+## 9. Directives
+
+- Performance first — queues size=1, pas d’I/O bloquant dans la boucle detect
+- Config = flags / seuils ; chemins versionnés = découverte dynamique
+- Aim = hardware HID uniquement (plus de `SendInput`)
+- Valider capture / détecteur isolément (`python -m core.capture`, `python -m core.detector`) avant le pipeline complet
