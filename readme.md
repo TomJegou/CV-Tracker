@@ -101,6 +101,8 @@ python main.py --model path/to/best.pt      # Override
 python scripts/extract_frames.py            # Derush → prochain images_extraites/vN/
 python scripts/auto_label.py                # Pré-anno (skip si .txt déjà présent)
 python scripts/auto_label.py --latest
+python scripts/auto_label.py --force        # Écrase les .txt mining / existants
+python scripts/auto_label.py --latest -f
 python scripts/split_dataset.py             # Fusionne v* + data_mining_* → train/val
 python scripts/train.py                     # Crée models/apex_{NNN}/
 python scripts/train.py --list
@@ -116,7 +118,7 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
 1. **Data mining** — `ENABLE_DATA_MINING=True` → `data/images_extraites/data_mining_{NNN}/`  
    YOLO tourne à `DATA_MINING_CONF` ; l’aim ne voit que `conf ≥ CONF_THRESHOLD`.  
    Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
-2. **Correction** — LabelImg sur la session (ou supprimer les `.txt` puis `auto_label.py` pour régénérer une pré-anno)
+2. **Correction** — LabelImg sur la session, ou `auto_label.py --force` pour régénérer la pré-anno YOLO
 3. **Split** — `python scripts/split_dataset.py`
 4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
 5. **Export** — `python scripts/export_engine.py`

@@ -29,11 +29,6 @@ def to_yolo_lines(result) -> list[str]:
     return lines
 
 
-def label_file_exists(label_path: Path) -> bool:
-    """Ne pas écraser un .txt déjà présent (data mining / annotation manuelle)."""
-    return label_path.exists()
-
-
 def auto_label_image(model: YOLO, image_path: Path) -> tuple[int, dict[int, int]]:
     results = model.predict(
         source=str(image_path),
@@ -57,7 +52,12 @@ def auto_label_image(model: YOLO, image_path: Path) -> tuple[int, dict[int, int]
     return len(lines), per_class
 
 
-def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
+def process_directory(
+    model: YOLO,
+    source_dir: Path,
+    *,
+    force: bool = False,
+) -> dict[str, int]:
     all_images = sorted(source_dir.glob("*.jpg"))
     images = [img for img in all_images if not img.name.startswith("FAUX_POSITIF_")]
     total_images = len(images)
@@ -66,6 +66,8 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
     print(f"{len(all_images)} image(s) trouvée(s)")
     if len(all_images) != total_images:
         print(f"{len(all_images) - total_images} faux positif(s) ignoré(s) (FAUX_POSITIF_*)")
+    if force:
+        print("Mode --force : les .txt existants seront écrasés.")
 
     if not images:
         print("Aucune image .jpg à traiter.")
@@ -74,20 +76,25 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
             "labeled": 0,
             "empty": 0,
             "preserved": 0,
+            "overwritten": 0,
         }
 
     labeled_count = 0
     empty_count = 0
     preserved_count = 0
+    overwritten_count = 0
     class_totals: dict[int, int] = {}
 
     for index, image_path in enumerate(images, start=1):
         label_path = image_path.with_suffix(".txt")
-        if label_file_exists(label_path):
+        had_label = label_path.exists()
+        if had_label and not force:
             preserved_count += 1
             continue
 
         box_count, per_class = auto_label_image(model, image_path)
+        if had_label:
+            overwritten_count += 1
 
         if box_count > 0:
             labeled_count += 1
@@ -101,7 +108,8 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
             print(
                 f"Progression : {index}/{total_images} "
                 f"({labeled_count} avec cibles, {empty_count} vides, "
-                f"{preserved_count} déjà labellisées)"
+                f"{preserved_count} déjà labellisées, "
+                f"{overwritten_count} écrasées)"
             )
 
     print("  Résultat :")
@@ -109,6 +117,7 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
     print(f"    Images avec cibles : {labeled_count}")
     print(f"    Images vides : {empty_count}")
     print(f"    Déjà labellisées (ignorées) : {preserved_count}")
+    print(f"    .txt écrasés (--force) : {overwritten_count}")
     for class_id, count in sorted(class_totals.items()):
         name = CLASS_NAMES[class_id] if class_id < len(CLASS_NAMES) else f"cls_{class_id}"
         print(f"    Boxes {name} : {count}")
@@ -118,6 +127,7 @@ def process_directory(model: YOLO, source_dir: Path) -> dict[str, int]:
         "labeled": labeled_count,
         "empty": empty_count,
         "preserved": preserved_count,
+        "overwritten": overwritten_count,
     }
 
 
@@ -164,6 +174,12 @@ def main() -> None:
         action="store_true",
         help="Traiter uniquement la dernière session data_mining_{NNN} (ignoré si --dir)",
     )
+    parser.add_argument(
+        "--force",
+        "-f",
+        action="store_true",
+        help="Écraser les .txt existants (pré-anno mining / labels précédents).",
+    )
     args = parser.parse_args()
 
     try:
@@ -189,10 +205,18 @@ def main() -> None:
             "Annoter les alliés à la main (classe 1)."
         )
     print(f"Sessions à traiter : {len(source_dirs)}")
+    if args.force:
+        print("⚠ --force actif : les annotations existantes seront écrasées.")
 
-    totals = {"total": 0, "labeled": 0, "empty": 0, "preserved": 0}
+    totals = {
+        "total": 0,
+        "labeled": 0,
+        "empty": 0,
+        "preserved": 0,
+        "overwritten": 0,
+    }
     for source_dir in source_dirs:
-        stats = process_directory(model, source_dir)
+        stats = process_directory(model, source_dir, force=args.force)
         for key in totals:
             totals[key] += stats[key]
 
@@ -202,6 +226,7 @@ def main() -> None:
     print(f"  Images avec cibles : {totals['labeled']}")
     print(f"  Images vides : {totals['empty']}")
     print(f"  Déjà labellisées (ignorées) : {totals['preserved']}")
+    print(f"  .txt écrasés (--force) : {totals['overwritten']}")
 
 
 if __name__ == "__main__":
