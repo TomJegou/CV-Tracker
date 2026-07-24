@@ -12,6 +12,7 @@ AIM_ASSIST = True
 AIM_ASSIST_REQUIRE_LMB = False
 
 # --- Détection ---
+# Seuil aim / targeting (boxes « propres »)
 CONF_THRESHOLD = 0.65
 AUTO_LABEL_CONF = 0.65
 # Multiclass (aligné sur apex.yaml) — id 0 = ennemi, id 1 = allie
@@ -37,7 +38,10 @@ ARDUINO_OPEN_RETRY_S = 0.4
 
 # --- Data mining (FP / FN suspects) ---
 ENABLE_DATA_MINING = False
-DATA_MINING_UNCERTAIN_MIN = 0.65
+# Plancher YOLO quand mining ON (une passe ; aim filtre ensuite à CONF_THRESHOLD)
+DATA_MINING_CONF = 0.40
+# Bande FP suspect (doit être ≥ DATA_MINING_CONF pour être visible)
+DATA_MINING_UNCERTAIN_MIN = 0.40
 DATA_MINING_UNCERTAIN_MAX = 0.85
 # FN suspect : LMB + RMB maintenus et meilleure conf < ce seuil
 DATA_MINING_FN_MAX_CONF = 0.75

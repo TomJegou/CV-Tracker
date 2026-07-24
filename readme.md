@@ -82,6 +82,8 @@ Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
+| `CONF_THRESHOLD` | Seuil aim / targeting |
+| `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |
 | `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
 | `ARDUINO_OPEN_RETRIES` | Relances si COM verrouillé (Ctrl+C) |
@@ -112,6 +114,7 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
 ## 7. Workflow entraînement
 
 1. **Data mining** — `ENABLE_DATA_MINING=True` → `data/images_extraites/data_mining_{NNN}/`  
+   YOLO tourne à `DATA_MINING_CONF` ; l’aim ne voit que `conf ≥ CONF_THRESHOLD`.  
    Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
 2. **Correction** — LabelImg sur la session (ou supprimer les `.txt` puis `auto_label.py` pour régénérer une pré-anno)
 3. **Split** — `python scripts/split_dataset.py`

@@ -61,6 +61,13 @@ class AimPipeline:
         self._aim_assist_require_lmb = aim_assist_require_lmb
         self._enable_data_mining = enable_data_mining
         self._debug = debug
+        self._aim_conf = config.CONF_THRESHOLD
+        # Une seule passe YOLO : plancher mining si actif, sinon seuil aim
+        self._infer_conf = (
+            min(config.CONF_THRESHOLD, config.DATA_MINING_CONF)
+            if enable_data_mining
+            else config.CONF_THRESHOLD
+        )
 
         self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
         self._target_queue: queue.Queue[dict | None] = queue.Queue(maxsize=1)
@@ -135,8 +142,13 @@ class AimPipeline:
             except queue.Empty:
                 continue
 
-            detections = self._detector.detect(frame)
-            best_target = self._targeting.get_best_target(detections)
+            detections = self._detector.detect(frame, conf=self._infer_conf)
+            aim_detections = (
+                self._detector.filter_by_conf(detections, self._aim_conf)
+                if self._infer_conf < self._aim_conf
+                else detections
+            )
+            best_target = self._targeting.get_best_target(aim_detections)
             if self._aim_assist and self._mouse is not None:
                 put_latest(self._target_queue, best_target)
 

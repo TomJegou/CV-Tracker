@@ -26,10 +26,17 @@ class YoloDetector:
         self.conf_threshold = conf_threshold
         self._model = YOLO(str(self.model_path))
 
-    def detect(self, frame: np.ndarray) -> list[dict]:
+    def detect(
+        self,
+        frame: np.ndarray,
+        *,
+        conf: float | None = None,
+    ) -> list[dict]:
+        """Inférence YOLO. `conf` override le seuil d'instance (défaut : aim)."""
+        threshold = self.conf_threshold if conf is None else conf
         predict_kwargs: dict = {
             "verbose": False,
-            "conf": self.conf_threshold,
+            "conf": threshold,
             "device": 0,
         }
         if not self._is_engine:
@@ -58,6 +65,13 @@ class YoloDetector:
                 )
 
         return detections
+
+    @staticmethod
+    def filter_by_conf(
+        detections: list[dict],
+        min_conf: float,
+    ) -> list[dict]:
+        return [det for det in detections if det["conf"] >= min_conf]
 
     @staticmethod
     def _class_name(class_id: int) -> str:

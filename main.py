@@ -27,7 +27,9 @@ def _print_status(pipeline: AimPipeline) -> None:
     if config.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
         print(
             f"Data mining : activé → {pipeline.data_mining_dir}/ "
-            f"(fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f}-{config.DATA_MINING_UNCERTAIN_MAX:.2f}], "
+            f"(YOLO conf≥{config.DATA_MINING_CONF:.2f}, "
+            f"aim conf≥{config.CONF_THRESHOLD:.2f}, "
+            f"fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f}-{config.DATA_MINING_UNCERTAIN_MAX:.2f}], "
             f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + LMB+RMB)"
         )
 
