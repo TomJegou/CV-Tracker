@@ -95,7 +95,7 @@ Thread main     → fenêtre OpenCV                      [si DEBUG]
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
 Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shield ; avec `serial_aim`, le Leonardo n’envoie que l’aim (2ᵉ souris HID).  
-`NO_RECOIL` tire un pull-down (px/s) sur LMB+RMB (peut se cumuler avec l’aim).
+`NO_RECOIL` active le **jitter aim** Apex : tremblement fin sur X et Y dès LMB+RMB, via Arduino (peut se cumuler avec l’aim).
 
 ---
 
@@ -112,8 +112,8 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
 | `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
-| `NO_RECOIL` | Compensation de recul (LMB+RMB) |
-| `NO_RECOIL_DY_PER_S` / `NO_RECOIL_DX_PER_S` | Vitesse de pull (px/s) |
+| `NO_RECOIL` | Jitter aim X/Y sur LMB+RMB (via Arduino) |
+| `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
 | `NO_RECOIL_TICK_S` | Période d’application (~125 Hz) |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |

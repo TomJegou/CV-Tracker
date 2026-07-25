@@ -28,8 +28,9 @@ def _print_status(pipeline: AimPipeline) -> None:
 
     if config.NO_RECOIL:
         print(
-            f"No-recoil : activé — {config.NO_RECOIL_DY_PER_S:.0f} px/s bas, "
-            f"{config.NO_RECOIL_DX_PER_S:.0f} px/s lat. (LMB+RMB)"
+            f"No-recoil : activé — jitter X/Y "
+            f"{config.NO_RECOIL_JITTER_MIN}–{config.NO_RECOIL_JITTER_MAX} px "
+            f"(LMB+RMB, via Arduino)"
         )
         if config.NO_RECOIL_DEBUG:
             print("No-recoil DEBUG : logs [no-recoil] toutes les 0.5 s — "

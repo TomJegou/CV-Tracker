@@ -37,13 +37,12 @@ MAGNETIC_RADIUS = 150.0
 AIM_POINT_X = 0.50
 AIM_POINT_Y = 0.45
 
-# --- No-recoil (compensation de recul) ---
-# S'applique si LMB+RMB maintenus (peut se cumuler avec l'aim).
+# --- No-recoil (jitter aim Apex) ---
+# LMB+RMB → micro-tremblement X+Y (amplitude min–max px), via Arduino.
 NO_RECOIL = True
-NO_RECOIL_DY_PER_S = 200   # px/s vers le bas (positif = descend)
-NO_RECOIL_DX_PER_S = 0.0     # px/s latéral (positif = droite)
-NO_RECOIL_TICK_S = 0.008     # période d'application (~125 Hz)
-# Log stdout : état LMB/RMB + deltas envoyés (diag si le pull ne se voit pas)
+NO_RECOIL_JITTER_MIN = 5     # amplitude px (axes X et Y)
+NO_RECOIL_JITTER_MAX = 5
+NO_RECOIL_TICK_S = 0.008     # période (~125 Hz)
 NO_RECOIL_DEBUG = False
 
 # --- Arduino Leonardo (injection HID via Serial) ---

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import atexit
+import random
 import time
 
 import serial
@@ -18,8 +19,8 @@ from core.config import (
     LOCK_SCALE,
     MAGNETIC_RADIUS,
     MAX_SMOOTHING,
-    NO_RECOIL_DX_PER_S,
-    NO_RECOIL_DY_PER_S,
+    NO_RECOIL_JITTER_MAX,
+    NO_RECOIL_JITTER_MIN,
 )
 
 
@@ -203,43 +204,36 @@ class MouseController:
 
 
 class RecoilCompensator:
-    """Pull constant en px/s pendant LMB+RMB."""
+    """Jitter aim Apex : tremblement fin sur X et Y pendant LMB+RMB."""
 
     def __init__(
         self,
-        dx_per_s: float = NO_RECOIL_DX_PER_S,
-        dy_per_s: float = NO_RECOIL_DY_PER_S,
-        *,
-        max_dt_s: float = 0.05,
+        jitter_min: int = NO_RECOIL_JITTER_MIN,
+        jitter_max: int = NO_RECOIL_JITTER_MAX,
     ):
-        self._dx_per_s = dx_per_s
-        self._dy_per_s = dy_per_s
-        self._max_dt_s = max_dt_s
-        self._carry_x = 0.0
-        self._carry_y = 0.0
-        self._last_tick: float | None = None
+        lo = max(1, int(jitter_min))
+        hi = max(lo, int(jitter_max))
+        self._jitter_min = lo
+        self._jitter_max = hi
+        self._pending_return = False
+        self._dx = 0
+        self._dy = 0
 
     def reset(self) -> None:
-        self._carry_x = 0.0
-        self._carry_y = 0.0
-        self._last_tick = None
+        self._pending_return = False
+        self._dx = 0
+        self._dy = 0
 
     def tick(self, now: float) -> tuple[int, int]:
-        """Accumule le pull ; retourne le delta entier à envoyer (0,0 si rien)."""
-        if self._last_tick is None:
-            self._last_tick = now
-            return 0, 0
-        dt = min(now - self._last_tick, self._max_dt_s)
-        self._last_tick = now
-        if dt <= 0.0:
-            return 0, 0
+        """Tick impair : vecteur aléatoire ±amp ; tick pair : inverse exact (dérive ~0)."""
+        del now  # cadence gérée par le thread mouse
+        if self._pending_return:
+            self._pending_return = False
+            return -self._dx, -self._dy
 
-        self._carry_x += self._dx_per_s * dt
-        self._carry_y += self._dy_per_s * dt
-        move_x = int(self._carry_x)
-        move_y = int(self._carry_y)
-        if move_x == 0 and move_y == 0:
-            return 0, 0
-        self._carry_x -= move_x
-        self._carry_y -= move_y
-        return move_x, move_y
+        amp_x = random.randint(self._jitter_min, self._jitter_max)
+        amp_y = random.randint(self._jitter_min, self._jitter_max)
+        self._dx = amp_x if random.random() < 0.5 else -amp_x
+        self._dy = amp_y if random.random() < 0.5 else -amp_y
+        self._pending_return = True
+        return self._dx, self._dy
