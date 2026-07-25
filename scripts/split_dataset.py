@@ -7,7 +7,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.config import DATASET_TRAIN_DIR, DATASET_VAL_DIR
-from core.dataset_paths import list_dataset_source_dirs
+from core.dataset_paths import (
+    list_data_mining_dirs,
+    list_dataset_source_dirs,
+    list_manual_dataset_dirs,
+)
 
 TRAIN_RATIO = 0.8
 RANDOM_SEED = 42
@@ -24,7 +28,7 @@ def copy_pair(image_path: Path, destination: Path) -> bool:
 
 
 def collect_images(source_dirs: tuple[Path, ...]) -> list[Path]:
-    """Fusionne toutes les sources ; en cas de doublon de nom, la source la plus récente gagne."""
+    """Fusionne les sources ; en cas de doublon de nom, la source la plus récente gagne."""
     by_name: dict[str, Path] = {}
     for source_dir in source_dirs:
         if not source_dir.exists():
@@ -34,7 +38,25 @@ def collect_images(source_dirs: tuple[Path, ...]) -> list[Path]:
     return sorted(by_name.values())
 
 
-def resolve_source_dirs(dirs: list[Path] | None) -> tuple[Path, ...]:
+def resolve_latest_source_dir() -> Path:
+    """Dernière session : priorite data_mining_{NNN}, sinon dernier vN."""
+    mining = list_data_mining_dirs()
+    if mining:
+        return mining[-1]
+    manual = list_manual_dataset_dirs()
+    if manual:
+        return manual[-1]
+    raise FileNotFoundError(
+        "Aucune source trouvée dans data/images_extraites/ "
+        "(v* / data_mining_*). Ou passe --dir."
+    )
+
+
+def resolve_source_dirs(
+    dirs: list[Path] | None,
+    *,
+    latest_only: bool,
+) -> tuple[Path, ...]:
     if dirs:
         source_dirs: list[Path] = []
         for path in dirs:
@@ -43,6 +65,9 @@ def resolve_source_dirs(dirs: list[Path] | None) -> tuple[Path, ...]:
                 raise FileNotFoundError(f"Dossier introuvable : {resolved}")
             source_dirs.append(resolved)
         return tuple(source_dirs)
+
+    if latest_only:
+        return (resolve_latest_source_dir(),)
 
     source_dirs = list_dataset_source_dirs()
     if not source_dirs:
@@ -55,7 +80,10 @@ def resolve_source_dirs(dirs: list[Path] | None) -> tuple[Path, ...]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Split train/val depuis les dossiers images_extraites.",
+        description=(
+            "Split train/val depuis images_extraites. "
+            "Par défaut : fusionne toutes les sources v* + data_mining_*."
+        ),
     )
     parser.add_argument(
         "--dir",
@@ -65,13 +93,21 @@ def main() -> None:
         dest="dirs",
         help=(
             "Dossier source explicite (répétable). "
-            "Remplace la découverte auto v* / data_mining_*."
+            "Remplace la découverte auto."
+        ),
+    )
+    parser.add_argument(
+        "--latest",
+        action="store_true",
+        help=(
+            "Uniquement la dernière session data_mining_* "
+            "(sinon le dernier vN s'il n'y a pas de mining)."
         ),
     )
     args = parser.parse_args()
 
     try:
-        source_dirs = resolve_source_dirs(args.dirs)
+        source_dirs = resolve_source_dirs(args.dirs, latest_only=args.latest)
     except FileNotFoundError as exc:
         print(exc)
         return

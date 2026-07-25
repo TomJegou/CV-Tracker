@@ -20,7 +20,7 @@ Cible perf : queues bornées, GPU NVIDIA (YOLO / TensorRT FP16).
 | Capture | `dxcam` (DXGI Desktop Duplication) |
 | Inférence | Ultralytics YOLO → export TensorRT (`.engine`) |
 | Aim (PC) | `pyserial` → protocole `<dx,dy>\n` @ 115200 |
-| Aim (firmware) | Arduino Leonardo + USB Host Shield → `Mouse.h` |
+| Aim (firmware) | Arduino Leonardo → `Mouse.h` (2 modes, voir §3) |
 | Annotation | LabelImg (YOLO) |
 
 ### Installation
@@ -38,21 +38,36 @@ Adapte l’index CUDA (`cu118` / `cu124` / `cu130`) à ton driver. TensorRT pour
 
 ## 3. Matériel aim (requis si `AIM_ASSIST=True`)
 
-1. Arduino **Leonardo** (ATmega32U4, HID natif)
-2. **USB Host Shield** (compatible)
-3. Souris physique branchée sur le shield (Superlight **filaire** recommandé)
-4. Leonardo branché en USB au PC (port COM Windows)
+Deux setups possibles (même protocole Serial `<dx,dy>\n` @ 115200, même Python).
 
-Flash **uniquement** : [`arduino/mouse_fusion/mouse_fusion.ino`](arduino/mouse_fusion/mouse_fusion.ino)
+### A — Deux souris (recommandé si tu veux G HUB)
 
-> `arduino/serial_mouse/` est un prototype obsolète (parse le Serial mais n’appelle pas `Mouse.move`).
+1. Souris gamer → **port USB du PC**
+2. Leonardo → **autre port USB** (HID + COM)
+3. Host Shield **non requis**
 
-Test rapide sans pipeline :
+Flash : [`arduino/serial_aim/serial_aim.ino`](arduino/serial_aim/serial_aim.ino)
+
+Windows fusionne les deux HID sur un seul curseur : tu joues avec ta souris, l’aim pousse via le Leonardo.
+
+### B — Une souris (fusion Host Shield)
+
+1. Leonardo + **USB Host Shield**
+2. Souris physique sur le shield (filaire recommandé)
+3. Leonardo → PC
+
+Flash : [`arduino/mouse_fusion/mouse_fusion.ino`](arduino/mouse_fusion/mouse_fusion.ino)
+
+> G HUB ne voit plus la souris (elle n’est plus branchée au PC).
+
+### Test rapide
 
 ```bash
 python scripts/arduino_serial_test.py --list
 python scripts/arduino_serial_test.py --port COM5
 ```
+
+Règle `ARDUINO_PORT` dans `core/config.py`.
 
 ---
 
@@ -118,7 +133,9 @@ python scripts/auto_label.py                # Pré-anno (skip si .txt déjà pr�
 python scripts/auto_label.py --latest
 python scripts/auto_label.py --force        # Écrase les .txt mining / existants
 python scripts/auto_label.py --latest -f
-python scripts/split_dataset.py             # Fusionne v* + data_mining_* → train/val
+python scripts/split_dataset.py             # Fusionne toutes les sources v* + data_mining_*
+python scripts/split_dataset.py --latest    # Uniquement la dernière session data_mining_*
+python scripts/split_dataset.py -d chemin/  # Source(s) explicite(s)
 python scripts/train.py                     # Crée models/apex_{NNN}/
 python scripts/train.py --list
 python scripts/export_engine.py             # TensorRT du dernier apex_*
@@ -134,7 +151,7 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
    YOLO tourne à `DATA_MINING_CONF` ; l’aim ne voit que `conf ≥ CONF_THRESHOLD`.  
    Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
 2. **Correction** — LabelImg sur la session, ou `auto_label.py --force` pour régénérer la pré-anno YOLO
-3. **Split** — `python scripts/split_dataset.py`
+3. **Split** — `python scripts/split_dataset.py` (toutes les sources ; `--latest` pour la dernière session mining)
 4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
 5. **Export** — `python scripts/export_engine.py`
 

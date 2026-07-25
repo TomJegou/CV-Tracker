@@ -35,7 +35,7 @@ MAGNETIC_RADIUS = 150.0
 # Point visé dans la box YOLO (0=bord gauche/haut, 0.5=centre, 1=bord droit/bas).
 # Ex. Y=0.30 ≈ haut du corps / tête ; X=0.50 = centre horizontal.
 AIM_POINT_X = 0.50
-AIM_POINT_Y = 0.35
+AIM_POINT_Y = 0.45
 
 # --- Arduino Leonardo (injection HID via Serial) ---
 ARDUINO_PORT = "COM5"
@@ -47,7 +47,7 @@ ARDUINO_OPEN_RETRIES = 8
 ARDUINO_OPEN_RETRY_S = 0.4
 
 # --- Data mining (FP / FN suspects) ---
-ENABLE_DATA_MINING = False
+ENABLE_DATA_MINING = True
 # Plancher YOLO quand mining ON (une passe ; aim filtre ensuite à CONF_THRESHOLD)
 DATA_MINING_CONF = 0.40
 # Bande FP suspect (doit être ≥ DATA_MINING_CONF pour être visible)
