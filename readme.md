@@ -23,6 +23,17 @@ Cible perf : queues bornées, GPU NVIDIA (YOLO / TensorRT FP16).
 | Aim (firmware) | Arduino Leonardo + USB Host Shield → `Mouse.h` |
 | Annotation | LabelImg (YOLO) |
 
+### Installation
+
+```bash
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu130
+```
+
+Adapte l’index CUDA (`cu118` / `cu124` / `cu130`) à ton driver. TensorRT pour `.engine` s’installe à part (kit NVIDIA).
+
 ---
 
 ## 3. Matériel aim (requis si `AIM_ASSIST=True`)
