@@ -63,8 +63,8 @@ DATA_MINING_UNCERTAIN_MIN = 0.40
 DATA_MINING_UNCERTAIN_MAX = 0.65
 # FN suspect : LMB+RMB et meilleure conf ennemi < ce seuil (≤ CONF_THRESHOLD)
 DATA_MINING_FN_MAX_CONF = 0.65
-DATA_MINING_COOLDOWN_FP = 0.5
-DATA_MINING_COOLDOWN_FN = 0.3
+DATA_MINING_COOLDOWN_FP = 1
+DATA_MINING_COOLDOWN_FN = 1
 
 # --- Dataset / entraînement ---
 # Dossiers images : core/dataset_paths.py | modèles : core/model_paths.py (models/apex_{NNN}/)
