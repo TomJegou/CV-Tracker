@@ -82,19 +82,20 @@ Règle `ARDUINO_PORT` dans `core/config.py`.
 | Inférence | `core/detector.py` | YOLO multiclasse + debug draw |
 | Ciblage | `core/targeting.py` | Ennemi le plus proche du réticule |
 | Touches | `core/keys.py` | État LMB/RMB (`GetAsyncKeyState`) |
-| Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist`) |
+| Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist` + no-recoil) |
 | Data mining | `core/collector.py` | FP/FN suspects → `data_mining_{NNN}/` |
 | Pipeline | `core/pipeline.py` | Threads capture / detect / mouse |
 
 ```
 Thread capture  → frame_queue (size=1)
 Thread detect   → YOLO + targeting + (mining) + debug_queue
-Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST]
+Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST ou NO_RECOIL]
 Thread main     → fenêtre OpenCV                      [si DEBUG]
 ```
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
-Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shield ; avec `serial_aim`, le Leonardo n’envoie que l’aim (2ᵉ souris HID).
+Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shield ; avec `serial_aim`, le Leonardo n’envoie que l’aim (2ᵉ souris HID).  
+`NO_RECOIL` tire un pull-down (px/s) sur LMB+RMB (peut se cumuler avec l’aim).
 
 ---
 
@@ -111,6 +112,9 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
 | `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
+| `NO_RECOIL` | Compensation de recul (LMB+RMB) |
+| `NO_RECOIL_DY_PER_S` / `NO_RECOIL_DX_PER_S` | Vitesse de pull (px/s) |
+| `NO_RECOIL_TICK_S` | Période d’application (~125 Hz) |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |

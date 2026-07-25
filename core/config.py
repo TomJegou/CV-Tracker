@@ -37,6 +37,15 @@ MAGNETIC_RADIUS = 150.0
 AIM_POINT_X = 0.50
 AIM_POINT_Y = 0.45
 
+# --- No-recoil (compensation de recul) ---
+# S'applique si LMB+RMB maintenus (peut se cumuler avec l'aim).
+NO_RECOIL = True
+NO_RECOIL_DY_PER_S = 200   # px/s vers le bas (positif = descend)
+NO_RECOIL_DX_PER_S = 0.0     # px/s latéral (positif = droite)
+NO_RECOIL_TICK_S = 0.008     # période d'application (~125 Hz)
+# Log stdout : état LMB/RMB + deltas envoyés (diag si le pull ne se voit pas)
+NO_RECOIL_DEBUG = False
+
 # --- Arduino Leonardo (injection HID via Serial) ---
 ARDUINO_PORT = "COM5"
 ARDUINO_BAUD = 115200

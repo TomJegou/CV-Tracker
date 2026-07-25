@@ -18,6 +18,8 @@ from core.config import (
     LOCK_SCALE,
     MAGNETIC_RADIUS,
     MAX_SMOOTHING,
+    NO_RECOIL_DX_PER_S,
+    NO_RECOIL_DY_PER_S,
 )
 
 
@@ -165,29 +167,79 @@ class MouseController:
     def close(self) -> None:
         close_arduino_mouse()
 
-    def apply(self, dx: float, dy: float, distance: float) -> None:
-        if self.mode == "lock":
-            self._lock(dx, dy)
-        else:
-            self._assist(dx, dy, distance)
-
-    def _lock(self, dx: float, dy: float) -> None:
-        move_x = int(round(dx * self.lock_scale))
-        move_y = int(round(dy * self.lock_scale))
+    def apply(self, dx: float, dy: float, distance: float) -> bool:
+        """Applique l'aim. True si un delta non nul a été soumis."""
+        move_x, move_y = self.compute_move(dx, dy, distance)
         if move_x == 0 and move_y == 0:
-            return
-
+            return False
         move_mouse(move_x, move_y)
         if self.debug_moves:
             print(f"[aim] SNAP dx={dx:.0f} dy={dy:.0f} -> <{move_x},{move_y}>")
+        return True
 
-    def _assist(self, dx: float, dy: float, distance: float) -> None:
+    def compute_move(self, dx: float, dy: float, distance: float) -> tuple[int, int]:
+        """Calcule le delta aim sans l'envoyer (pour fusion avec no-recoil)."""
+        if self.mode == "lock":
+            return self._lock_delta(dx, dy)
+        return self._assist_delta(dx, dy, distance)
+
+    def _lock_delta(self, dx: float, dy: float) -> tuple[int, int]:
+        move_x = int(round(dx * self.lock_scale))
+        move_y = int(round(dy * self.lock_scale))
+        if move_x == 0 and move_y == 0:
+            return 0, 0
+        return move_x, move_y
+
+    def _assist_delta(self, dx: float, dy: float, distance: float) -> tuple[int, int]:
         if distance > self.magnetic_radius:
-            return
+            return 0, 0
 
         dynamic_smooth = self.max_smoothing * (1 - (distance / self.magnetic_radius))
         move_x = int(dx * dynamic_smooth)
         move_y = int(dy * dynamic_smooth)
         if move_x == 0 and move_y == 0:
-            return
-        move_mouse(move_x, move_y)
+            return 0, 0
+        return move_x, move_y
+
+
+class RecoilCompensator:
+    """Pull constant en px/s pendant LMB+RMB."""
+
+    def __init__(
+        self,
+        dx_per_s: float = NO_RECOIL_DX_PER_S,
+        dy_per_s: float = NO_RECOIL_DY_PER_S,
+        *,
+        max_dt_s: float = 0.05,
+    ):
+        self._dx_per_s = dx_per_s
+        self._dy_per_s = dy_per_s
+        self._max_dt_s = max_dt_s
+        self._carry_x = 0.0
+        self._carry_y = 0.0
+        self._last_tick: float | None = None
+
+    def reset(self) -> None:
+        self._carry_x = 0.0
+        self._carry_y = 0.0
+        self._last_tick = None
+
+    def tick(self, now: float) -> tuple[int, int]:
+        """Accumule le pull ; retourne le delta entier à envoyer (0,0 si rien)."""
+        if self._last_tick is None:
+            self._last_tick = now
+            return 0, 0
+        dt = min(now - self._last_tick, self._max_dt_s)
+        self._last_tick = now
+        if dt <= 0.0:
+            return 0, 0
+
+        self._carry_x += self._dx_per_s * dt
+        self._carry_y += self._dy_per_s * dt
+        move_x = int(self._carry_x)
+        move_y = int(self._carry_y)
+        if move_x == 0 and move_y == 0:
+            return 0, 0
+        self._carry_x -= move_x
+        self._carry_y -= move_y
+        return move_x, move_y

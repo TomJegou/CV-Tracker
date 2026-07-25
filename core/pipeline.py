@@ -12,9 +12,16 @@ from core import config
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController
-from core.keys import is_ads_and_firing, is_aim_trigger_active
+from core.mouse import MouseController, RecoilCompensator, move_mouse
+from core.keys import (
+    is_ads_and_firing,
+    is_aim_trigger_active,
+    is_left_mouse_pressed,
+    is_right_mouse_pressed,
+)
 from core.targeting import TargetingSystem
+
+MOUSE_QUEUE_TIMEOUT_S = 0.05
 
 
 class PipelineError(RuntimeError):
@@ -53,6 +60,7 @@ class AimPipeline:
         targeting: TargetingSystem,
         mouse: MouseController | None = None,
         collector: DataCollector | None = None,
+        recoil: RecoilCompensator | None = None,
         *,
         aim_assist: bool = config.AIM_ASSIST,
         aim_assist_require_lmb: bool = config.AIM_ASSIST_REQUIRE_LMB,
@@ -66,6 +74,7 @@ class AimPipeline:
         self._targeting = targeting
         self._mouse = mouse
         self._collector = collector
+        self._recoil = recoil
         self._aim_assist = aim_assist
         self._aim_assist_require_lmb = aim_assist_require_lmb
         self._aim_assist_require_rmb = aim_assist_require_rmb
@@ -80,6 +89,10 @@ class AimPipeline:
             else config.CONF_THRESHOLD
         )
         self._capture_idle_sleep_s = config.CAPTURE_IDLE_SLEEP_S
+        self._mouse_tick_s = (
+            config.NO_RECOIL_TICK_S if recoil is not None else MOUSE_QUEUE_TIMEOUT_S
+        )
+        self._no_recoil_debug = config.NO_RECOIL_DEBUG if recoil is not None else False
 
         self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
         self._target_queue: queue.Queue[dict | None] = queue.Queue(maxsize=1)
@@ -97,9 +110,11 @@ class AimPipeline:
         capture = ScreenCapture()
         detector = YoloDetector(model_path=model_path)
         targeting = TargetingSystem()
-        mouse = MouseController() if config.AIM_ASSIST else None
+        needs_mouse = config.AIM_ASSIST or config.NO_RECOIL
+        mouse = MouseController() if needs_mouse else None
         collector = DataCollector() if config.ENABLE_DATA_MINING else None
-        return cls(capture, detector, targeting, mouse, collector)
+        recoil = RecoilCompensator() if config.NO_RECOIL else None
+        return cls(capture, detector, targeting, mouse, collector, recoil)
 
     @property
     def detector(self) -> YoloDetector:
@@ -129,14 +144,17 @@ class AimPipeline:
         if self._started:
             return
 
-        if self._aim_assist and self._mouse is not None:
+        needs_mouse = (
+            (self._aim_assist or self._recoil is not None) and self._mouse is not None
+        )
+        if needs_mouse:
             self._mouse.open()
 
         workers = [
             ("capture", self._capture_loop),
             ("detect", self._detect_loop),
         ]
-        if self._aim_assist and self._mouse is not None:
+        if needs_mouse:
             workers.append(("mouse", self._mouse_loop))
 
         self._stop.clear()
@@ -233,17 +251,24 @@ class AimPipeline:
     def _mouse_loop(self) -> None:
         assert self._mouse is not None
 
+        if self._recoil is None:
+            self._mouse_loop_aim_only()
+        else:
+            self._mouse_loop_with_recoil()
+
+    def _mouse_loop_aim_only(self) -> None:
+        """Aim seul : se réveille sur la queue (latence mini)."""
+        assert self._mouse is not None
+        tick = self._mouse_tick_s
+
         while not self._stop.is_set():
             try:
-                target = self._target_queue.get(timeout=0.05)
+                target = self._target_queue.get(timeout=tick)
             except queue.Empty:
                 continue
 
-            if target is None:
+            if target is None or self._stop.is_set():
                 continue
-
-            if self._stop.is_set():
-                break
 
             if not is_aim_trigger_active(
                 require_lmb=self._aim_assist_require_lmb,
@@ -253,3 +278,66 @@ class AimPipeline:
                 continue
 
             self._mouse.apply(target["dx"], target["dy"], target["distance"])
+
+    def _mouse_loop_with_recoil(self) -> None:
+        """Aim + no-recoil : tick fixe, un seul write Serial fusionné."""
+        assert self._mouse is not None
+        assert self._recoil is not None
+
+        tick = self._mouse_tick_s
+        debug = self._no_recoil_debug
+        last_debug = 0.0
+        recoil_sent = 0
+
+        while not self._stop.is_set():
+            loop_start = time.perf_counter()
+
+            target = None
+            try:
+                while True:
+                    target = self._target_queue.get_nowait()
+            except queue.Empty:
+                pass
+
+            if self._stop.is_set():
+                break
+
+            now = time.perf_counter()
+            aim_x = aim_y = 0
+            if target is not None and is_aim_trigger_active(
+                require_lmb=self._aim_assist_require_lmb,
+                require_rmb=self._aim_assist_require_rmb,
+                require_both=self._aim_assist_require_both,
+            ):
+                aim_x, aim_y = self._mouse.compute_move(
+                    target["dx"], target["dy"], target["distance"]
+                )
+
+            if is_ads_and_firing():
+                recoil_x, recoil_y = self._recoil.tick(now)
+            else:
+                self._recoil.reset()
+                recoil_x = recoil_y = 0
+
+            out_x = aim_x + recoil_x
+            out_y = aim_y + recoil_y
+            if out_x != 0 or out_y != 0:
+                move_mouse(out_x, out_y)
+                if recoil_x != 0 or recoil_y != 0:
+                    recoil_sent += 1
+
+            if debug and now - last_debug >= 0.5:
+                last_debug = now
+                print(
+                    f"[no-recoil] LMB={int(is_left_mouse_pressed())} "
+                    f"RMB={int(is_right_mouse_pressed())} "
+                    f"firing={int(is_ads_and_firing())} "
+                    f"aim=<{aim_x},{aim_y}> recoil=<{recoil_x},{recoil_y}> "
+                    f"sent_ticks={recoil_sent}"
+                )
+                recoil_sent = 0
+
+            elapsed = time.perf_counter() - loop_start
+            sleep_s = tick - elapsed
+            if sleep_s > 0:
+                time.sleep(sleep_s)

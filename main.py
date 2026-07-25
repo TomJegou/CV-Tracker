@@ -26,6 +26,15 @@ def _print_status(pipeline: AimPipeline) -> None:
     else:
         print("Aim : désactivé (détection seule)")
 
+    if config.NO_RECOIL:
+        print(
+            f"No-recoil : activé — {config.NO_RECOIL_DY_PER_S:.0f} px/s bas, "
+            f"{config.NO_RECOIL_DX_PER_S:.0f} px/s lat. (LMB+RMB)"
+        )
+        if config.NO_RECOIL_DEBUG:
+            print("No-recoil DEBUG : logs [no-recoil] toutes les 0.5 s — "
+                  "vérifie LMB=1 RMB=1 firing=1 en tirant")
+
     if config.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
         infer = min(config.CONF_THRESHOLD, config.DATA_MINING_CONF)
         print(
