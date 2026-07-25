@@ -7,7 +7,7 @@ MODELS_DIR = ROOT_DIR / "models"
 
 # --- Pipeline runtime ---
 FOV_SIZE = 416
-DEBUG = True
+DEBUG = False
 AIM_ASSIST = True
 # Triggers aim (lock/assist). Si LMB et RMB à True → OU.
 # REQUIRE_BOTH à True → LMB et RMB obligatoires (prioritaire sur le OU).
@@ -40,8 +40,8 @@ AIM_POINT_Y = 0.45
 # --- No-recoil (jitter aim Apex) ---
 # LMB+RMB → micro-tremblement X+Y (amplitude min–max px), via Arduino.
 NO_RECOIL = True
-NO_RECOIL_JITTER_MIN = 5     # amplitude px (axes X et Y)
-NO_RECOIL_JITTER_MAX = 5
+NO_RECOIL_JITTER_MIN = 4     # amplitude px (axes X et Y)
+NO_RECOIL_JITTER_MAX = 4
 NO_RECOIL_TICK_S = 0.008     # période (~125 Hz)
 NO_RECOIL_DEBUG = False
 
@@ -55,7 +55,7 @@ ARDUINO_OPEN_RETRIES = 8
 ARDUINO_OPEN_RETRY_S = 0.4
 
 # --- Data mining (FP / FN suspects) ---
-ENABLE_DATA_MINING = False
+ENABLE_DATA_MINING = True
 # Plancher YOLO quand mining ON (une passe ; aim filtre ensuite à CONF_THRESHOLD)
 DATA_MINING_CONF = 0.40
 # Bande FP suspect : [MIN, MAX] avec MAX ≤ CONF_THRESHOLD (évite de miner des boxes aim-valides)
