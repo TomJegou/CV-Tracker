@@ -1,5 +1,6 @@
 import queue
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,6 +69,7 @@ class AimPipeline:
             if enable_data_mining
             else config.CONF_THRESHOLD
         )
+        self._capture_idle_sleep_s = config.CAPTURE_IDLE_SLEEP_S
 
         self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
         self._target_queue: queue.Queue[dict | None] = queue.Queue(maxsize=1)
@@ -129,9 +131,12 @@ class AimPipeline:
             return None
 
     def _capture_loop(self) -> None:
+        idle_sleep = self._capture_idle_sleep_s
         while not self._stop.is_set():
             frame = self._capture.get_latest_frame()
             if frame is None:
+                if idle_sleep > 0:
+                    time.sleep(idle_sleep)
                 continue
             put_latest(self._frame_queue, frame.copy())
 

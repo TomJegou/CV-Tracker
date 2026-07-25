@@ -10,6 +10,8 @@ FOV_SIZE = 416
 DEBUG = True
 AIM_ASSIST = True
 AIM_ASSIST_REQUIRE_LMB = False
+# Pause capture si dxcam.grab() renvoie None (évite busy-loop CPU). 0 = désactivé.
+CAPTURE_IDLE_SLEEP_S = 0.001
 
 # --- Détection ---
 # Seuil aim / targeting (boxes « propres »)
