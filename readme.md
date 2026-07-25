@@ -94,7 +94,7 @@ Thread main     → fenêtre OpenCV                      [si DEBUG]
 ```
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
-Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
+Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shield ; avec `serial_aim`, le Leonardo n’envoie que l’aim (2ᵉ souris HID).
 
 ---
 
@@ -114,6 +114,8 @@ Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |
+| `DATA_MINING_UNCERTAIN_*` | Bande FP suspect (≤ `CONF_THRESHOLD`) |
+| `CAPTURE_IDLE_SLEEP_S` | Sleep si `grab()` = None (anti busy-loop) |
 | `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
 | `ARDUINO_OPEN_RETRIES` | Relances si COM verrouillé (Ctrl+C) |

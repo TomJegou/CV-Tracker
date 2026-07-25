@@ -122,9 +122,11 @@ class AimPipeline:
     def stop(self) -> None:
         self._stop.set()
         for thread in self._threads:
-            thread.join(timeout=1.0)
+            thread.join(timeout=2.0)
         self._threads.clear()
         self._capture.release()
+        if self._collector is not None:
+            self._collector.stop()
         if self._mouse is not None:
             self._mouse.close()
 
@@ -189,6 +191,9 @@ class AimPipeline:
 
             if target is None:
                 continue
+
+            if self._stop.is_set():
+                break
 
             if not is_aim_trigger_active(
                 require_lmb=self._aim_assist_require_lmb,

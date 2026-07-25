@@ -18,6 +18,9 @@ from core.config import (
 )
 from core.dataset_paths import create_data_mining_session_dir
 
+# Sentinel pour arrêter le worker proprement
+_STOP = object()
+
 # Raisons sans box YOLO (faux négatif suspect) → .txt vide
 _EMPTY_LABEL_REASONS = frozenset({"fn_suspect"})
 
@@ -61,15 +64,13 @@ class DataCollector:
         self._cooldowns = {
             "fp_suspect": cooldown_fp,
             "fn_suspect": cooldown_fn,
-            # Allié détecté (potentiel FP ou décor / ennemi mal classé en allie)
             "ally_fp_suspect": cooldown_fp,
-            # Tir actif mais pas d'ennemi détecté : l'ennemi pourrait être classé "allie"
             "enemy_as_ally_suspect": cooldown_fn,
         }
         self._last_capture: dict[str, float] = {}
-        # (image, reason, label_text) — I/O disque uniquement dans le worker
-        self._queue: queue.Queue[tuple[np.ndarray, str, str]] = queue.Queue()
+        self._queue: queue.Queue = queue.Queue()
         self._save_dir.mkdir(parents=True, exist_ok=True)
+        self._stopped = False
 
         self._worker = threading.Thread(
             target=self._process_queue,
@@ -92,8 +93,10 @@ class DataCollector:
         """Enqueue seulement les frames utiles pour corriger FP / FN.
 
         `clicking` doit être True quand LMB + RMB sont maintenus (ADS + tir).
-        Les labels YOLO sont préparés ici (léger) ; l'écriture disque reste async.
         """
+        if self._stopped:
+            return
+
         enemies = [d for d in detections if d.get("class_id") == TARGET_CLASS_ID]
         ally_class_id = CLASS_NAMES.index("allie") if "allie" in CLASS_NAMES else 1
         allies = [d for d in detections if d.get("class_id") == ally_class_id]
@@ -109,22 +112,31 @@ class DataCollector:
         ):
             self._add_image(image, "fp_suspect", yolo_text)
 
-        # Allié détecté avec une confiance "suspecte" : potentiel faux positif
         if allies and any(
             self._uncertain_min <= det["conf"] <= self._uncertain_max
             for det in allies
         ):
             self._add_image(image, "ally_fp_suspect", yolo_text)
 
-        # Tir actif mais pas d'ennemi détecté : l'ennemi pourrait être classé "allie"
-        if clicking and best_enemy_conf < self._fn_max_conf and allies:
-            if best_ally_conf >= self._uncertain_min:
-                self._add_image(image, "enemy_as_ally_suspect", yolo_text)
-
+        # Tir actif, ennemi conf trop basse : allié suspect OU FN (pas les deux)
         if clicking and best_enemy_conf < self._fn_max_conf:
-            self._add_image(image, "fn_suspect", "")
+            if allies and best_ally_conf >= self._uncertain_min:
+                self._add_image(image, "enemy_as_ally_suspect", yolo_text)
+            else:
+                self._add_image(image, "fn_suspect", "")
+
+    def stop(self, timeout: float = 2.0) -> None:
+        """Refuse les nouveaux items, vide la queue, arrête le worker."""
+        if self._stopped:
+            return
+        self._stopped = True
+        self._queue.put(_STOP)
+        self._worker.join(timeout=timeout)
 
     def _add_image(self, image: np.ndarray, reason: str, label_text: str) -> None:
+        if self._stopped:
+            return
+
         now = time.perf_counter()
         cooldown = self._cooldowns.get(reason, 0.5)
         last = self._last_capture.get(reason, 0.0)
@@ -139,9 +151,16 @@ class DataCollector:
 
     def _process_queue(self) -> None:
         while True:
-            image, reason, label_text = self._queue.get()
-            timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
-            stem = f"{timestamp}_{reason}"
-            cv2.imwrite(str(self._save_dir / f"{stem}.jpg"), image)
-            (self._save_dir / f"{stem}.txt").write_text(label_text, encoding="utf-8")
-            self._queue.task_done()
+            item = self._queue.get()
+            try:
+                if item is _STOP:
+                    return
+                image, reason, label_text = item
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
+                stem = f"{timestamp}_{reason}"
+                cv2.imwrite(str(self._save_dir / f"{stem}.jpg"), image)
+                (self._save_dir / f"{stem}.txt").write_text(
+                    label_text, encoding="utf-8"
+                )
+            finally:
+                self._queue.task_done()

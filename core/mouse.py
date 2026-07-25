@@ -102,21 +102,27 @@ class ArduinoMouse:
 
 
 # ---------------------------------------------------------------------------
-# Instance globale lazy + API move_mouse (compat)
+# Instance globale lazy + API move_mouse
 # ---------------------------------------------------------------------------
 _arduino: ArduinoMouse | None = None
+_suppress_open = False
 
 
 def get_arduino_mouse() -> ArduinoMouse:
     global _arduino
     if _arduino is None:
+        if _suppress_open:
+            raise SerialException(
+                "Port Arduino fermé (pipeline stop). Relance via MouseController.open()."
+            )
         _arduino = ArduinoMouse()
     return _arduino
 
 
 def close_arduino_mouse() -> None:
-    """Ferme le Serial et libère le singleton (safe à appeler plusieurs fois)."""
-    global _arduino
+    """Ferme le Serial et empêche une réouverture accidentelle (race thread mouse)."""
+    global _arduino, _suppress_open
+    _suppress_open = True
     if _arduino is not None:
         _arduino.close()
         _arduino = None
@@ -126,6 +132,8 @@ atexit.register(close_arduino_mouse)
 
 
 def move_mouse(dx: int, dy: int) -> None:
+    if _suppress_open and _arduino is None:
+        return
     get_arduino_mouse().move(dx, dy)
 
 
@@ -149,7 +157,9 @@ class MouseController:
         self.debug_moves = debug_moves
 
     def open(self) -> None:
-        """Ouvre le Serial (appelé au start pipeline, pas à la construction)."""
+        """Autorise et ouvre le Serial (appelé au start pipeline)."""
+        global _suppress_open
+        _suppress_open = False
         get_arduino_mouse()
 
     def close(self) -> None:

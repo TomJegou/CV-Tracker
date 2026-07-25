@@ -59,13 +59,11 @@ def process_directory(
     force: bool = False,
 ) -> dict[str, int]:
     all_images = sorted(source_dir.glob("*.jpg"))
-    images = [img for img in all_images if not img.name.startswith("FAUX_POSITIF_")]
+    images = all_images
     total_images = len(images)
 
     print(f"\nDossier : {source_dir}/")
     print(f"{len(all_images)} image(s) trouvée(s)")
-    if len(all_images) != total_images:
-        print(f"{len(all_images) - total_images} faux positif(s) ignoré(s) (FAUX_POSITIF_*)")
     if force:
         print("Mode --force : les .txt existants seront écrasés.")
 
