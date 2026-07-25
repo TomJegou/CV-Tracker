@@ -6,6 +6,7 @@ import cv2
 from serial import SerialException
 
 from core import config
+from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
 from core.pipeline import AimPipeline
 
@@ -19,7 +20,7 @@ def _print_status(pipeline: AimPipeline) -> None:
         print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
     if config.AIM_ASSIST:
-        trigger = "clic gauche" if config.AIM_ASSIST_REQUIRE_LMB else "toujours actif"
+        trigger = describe_aim_trigger()
         print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
     else:
         print("Aim : désactivé (détection seule)")

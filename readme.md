@@ -78,7 +78,9 @@ Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
 |---|---|
 | `DEBUG` | Fenêtre OpenCV + overlays |
 | `AIM_ASSIST` | Ouvre le COM et démarre le thread mouse |
-| `AIM_ASSIST_REQUIRE_LMB` | Aim seulement si clic gauche maintenu |
+| `AIM_ASSIST_REQUIRE_LMB` | Aim si clic gauche (OU avec RMB si les deux True) |
+| `AIM_ASSIST_REQUIRE_RMB` | Aim si clic droit |
+| `AIM_ASSIST_REQUIRE_BOTH` | Aim seulement si LMB **et** RMB (prioritaire) |
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |

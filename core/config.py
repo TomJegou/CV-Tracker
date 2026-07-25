@@ -9,7 +9,11 @@ MODELS_DIR = ROOT_DIR / "models"
 FOV_SIZE = 416
 DEBUG = True
 AIM_ASSIST = True
+# Triggers aim (lock/assist). Si LMB et RMB à True → OU.
+# REQUIRE_BOTH à True → LMB et RMB obligatoires (prioritaire sur le OU).
 AIM_ASSIST_REQUIRE_LMB = False
+AIM_ASSIST_REQUIRE_RMB = False
+AIM_ASSIST_REQUIRE_BOTH = False
 # Pause capture si dxcam.grab() renvoie None (évite busy-loop CPU). 0 = désactivé.
 CAPTURE_IDLE_SLEEP_S = 0.001
 

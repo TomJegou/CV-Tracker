@@ -11,7 +11,7 @@ from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
 from core.mouse import MouseController
-from core.keys import is_ads_and_firing, is_left_mouse_pressed
+from core.keys import is_ads_and_firing, is_aim_trigger_active
 from core.targeting import TargetingSystem
 
 
@@ -50,6 +50,8 @@ class AimPipeline:
         *,
         aim_assist: bool = config.AIM_ASSIST,
         aim_assist_require_lmb: bool = config.AIM_ASSIST_REQUIRE_LMB,
+        aim_assist_require_rmb: bool = config.AIM_ASSIST_REQUIRE_RMB,
+        aim_assist_require_both: bool = config.AIM_ASSIST_REQUIRE_BOTH,
         enable_data_mining: bool = config.ENABLE_DATA_MINING,
         debug: bool = config.DEBUG,
     ):
@@ -60,6 +62,8 @@ class AimPipeline:
         self._collector = collector
         self._aim_assist = aim_assist
         self._aim_assist_require_lmb = aim_assist_require_lmb
+        self._aim_assist_require_rmb = aim_assist_require_rmb
+        self._aim_assist_require_both = aim_assist_require_both
         self._enable_data_mining = enable_data_mining
         self._debug = debug
         self._aim_conf = config.CONF_THRESHOLD
@@ -186,7 +190,11 @@ class AimPipeline:
             if target is None:
                 continue
 
-            if self._aim_assist_require_lmb and not is_left_mouse_pressed():
+            if not is_aim_trigger_active(
+                require_lmb=self._aim_assist_require_lmb,
+                require_rmb=self._aim_assist_require_rmb,
+                require_both=self._aim_assist_require_both,
+            ):
                 continue
 
             self._mouse.apply(target["dx"], target["dy"], target["distance"])
