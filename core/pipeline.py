@@ -1,6 +1,8 @@
 import queue
 import threading
 import time
+import traceback
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +15,10 @@ from core.detector import YoloDetector
 from core.mouse import MouseController
 from core.keys import is_ads_and_firing, is_aim_trigger_active
 from core.targeting import TargetingSystem
+
+
+class PipelineError(RuntimeError):
+    """Un thread worker a échoué : la pipeline a été arrêtée."""
 
 
 def put_latest(q: queue.Queue, item) -> None:
@@ -81,6 +87,10 @@ class AimPipeline:
 
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
+        self._started = False
+        self._stopped = False
+        self._failure: tuple[str, Exception] | None = None
+        self._failure_lock = threading.Lock()
 
     @classmethod
     def create(cls, model_path: Path | str | None = None) -> "AimPipeline":
@@ -99,8 +109,24 @@ class AimPipeline:
     def data_mining_dir(self) -> Path | None:
         return self._collector.save_dir if self._collector is not None else None
 
+    def is_running(self) -> bool:
+        return self._started and not self._stop.is_set()
+
+    def raise_if_failed(self) -> None:
+        with self._failure_lock:
+            failure = self._failure
+        if failure is None:
+            return
+        name, exc = failure
+        raise PipelineError(f"Thread '{name}' a échoué : {exc}") from exc
+
     def start(self) -> None:
-        if self._threads:
+        if self._stopped:
+            raise RuntimeError(
+                "AimPipeline est à usage unique : après stop(), recrée une "
+                "instance via AimPipeline.create()."
+            )
+        if self._started:
             return
 
         if self._aim_assist and self._mouse is not None:
@@ -114,12 +140,21 @@ class AimPipeline:
             workers.append(("mouse", self._mouse_loop))
 
         self._stop.clear()
-        for name, target in workers:
-            thread = threading.Thread(target=target, name=name, daemon=True)
+        for name, loop in workers:
+            thread = threading.Thread(
+                target=self._guard,
+                args=(name, loop),
+                name=name,
+                daemon=True,
+            )
             thread.start()
             self._threads.append(thread)
+        self._started = True
 
     def stop(self) -> None:
+        if self._stopped:
+            return
+        self._stopped = True
         self._stop.set()
         for thread in self._threads:
             thread.join(timeout=2.0)
@@ -135,6 +170,21 @@ class AimPipeline:
             return self._debug_queue.get(timeout=timeout)
         except queue.Empty:
             return None
+
+    def _guard(self, name: str, loop: Callable[[], None]) -> None:
+        try:
+            loop()
+        except Exception as exc:
+            # Exception pendant un arrêt demandé = bruit de shutdown
+            # (ex. grab() après capture.release() si le join a timeout).
+            if self._stop.is_set():
+                return
+            with self._failure_lock:
+                if self._failure is None:
+                    self._failure = (name, exc)
+            print(f"\n[pipeline] Thread '{name}' a crashé :")
+            traceback.print_exc()
+            self._stop.set()
 
     def _capture_loop(self) -> None:
         idle_sleep = self._capture_idle_sleep_s

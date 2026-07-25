@@ -1,4 +1,5 @@
 import argparse
+import sys
 import time
 from pathlib import Path
 
@@ -8,7 +9,7 @@ from serial import SerialException
 from core import config
 from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
-from core.pipeline import AimPipeline
+from core.pipeline import AimPipeline, PipelineError
 
 
 def _print_status(pipeline: AimPipeline) -> None:
@@ -48,7 +49,7 @@ def _run_debug_ui(pipeline: AimPipeline) -> None:
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window_name, 1000, 1000)
 
-    while True:
+    while pipeline.is_running():
         packet = pipeline.get_debug_frame(timeout=0.05)
         if packet is not None:
             debug_frame = pipeline.detector.draw_debug(packet.frame, packet.detections)
@@ -66,7 +67,7 @@ def _run_debug_ui(pipeline: AimPipeline) -> None:
             break
 
 
-def main() -> None:
+def main() -> int:
     parser = argparse.ArgumentParser(description="Pipeline CV-Tracker.")
     parser.add_argument(
         "--model",
@@ -81,6 +82,7 @@ def main() -> None:
     args = parser.parse_args()
 
     pipeline: AimPipeline | None = None
+    exit_code = 0
     try:
         pipeline = AimPipeline.create(model_path=args.model)
         _print_status(pipeline)
@@ -89,12 +91,19 @@ def main() -> None:
         if config.DEBUG:
             _run_debug_ui(pipeline)
         else:
-            while True:
+            while pipeline.is_running():
                 time.sleep(0.1)
+
+        pipeline.raise_if_failed()
+    except PipelineError as exc:
+        print(f"\nArrêt : {exc}")
+        exit_code = 1
     except FileNotFoundError as exc:
         print(exc)
+        exit_code = 1
     except SerialException as exc:
         print(exc)
+        exit_code = 1
     except KeyboardInterrupt:
         pass
     finally:
@@ -105,6 +114,8 @@ def main() -> None:
         if config.DEBUG:
             cv2.destroyAllWindows()
 
+    return exit_code
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

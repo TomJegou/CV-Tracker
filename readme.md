@@ -145,6 +145,8 @@ python scripts/export_engine.py             # TensorRT du dernier apex_*
 
 Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester verrouillé ~1–3 s ; l’ouverture retente automatiquement.
 
+`AimPipeline` est à usage unique : après `stop()`, recrée une instance via `AimPipeline.create()`. Un crash dans un thread worker (capture / detect / mouse) arrête toute la pipeline, affiche le traceback, et `main.py` sort avec le code 1.
+
 ---
 
 ## 7. Workflow entraînement
