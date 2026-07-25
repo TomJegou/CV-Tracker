@@ -93,6 +93,8 @@ Le sketch fusionne ces deltas avec le rapport HID de la souris physique.
 | `AIM_ASSIST_REQUIRE_RMB` | Aim si clic droit |
 | `AIM_ASSIST_REQUIRE_BOTH` | Aim seulement si LMB **et** RMB (prioritaire) |
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
+| `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
+| `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |

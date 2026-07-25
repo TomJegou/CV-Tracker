@@ -27,11 +27,15 @@ TARGET_CLASS_ID = 0
 
 # --- Aim ---
 # "lock" = snap direct (banc de test) | "assist" = friction magnétique
-AIM_MODE = "lock"
+AIM_MODE = "assist"
 LOCK_SCALE = 1.0
-AIM_DEBUG_MOVES = True
+AIM_DEBUG_MOVES = False
 MAX_SMOOTHING = 0.9
 MAGNETIC_RADIUS = 150.0
+# Point visé dans la box YOLO (0=bord gauche/haut, 0.5=centre, 1=bord droit/bas).
+# Ex. Y=0.30 ≈ haut du corps / tête ; X=0.50 = centre horizontal.
+AIM_POINT_X = 0.50
+AIM_POINT_Y = 0.35
 
 # --- Arduino Leonardo (injection HID via Serial) ---
 ARDUINO_PORT = "COM5"
