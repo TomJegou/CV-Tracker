@@ -111,10 +111,12 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
 | `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
+| `AIM_FIRE_PULL_DY_PER_S` | Pull-down pendant LMB+RMB (px/s ; 0 = off) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
 | `NO_RECOIL` | Jitter aim X/Y sur LMB+RMB (via Arduino) |
 | `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
-| `NO_RECOIL_TICK_S` | Période d’application (~200 Hz) |
+| `NO_RECOIL_TICK_S` | Période thread mouse fusionné (jitter / fire-pull) |
+| `NO_RECOIL_DEBUG` | Logs périodiques LMB/RMB / deltas mouse |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |

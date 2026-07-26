@@ -12,7 +12,7 @@ from core import config
 from core.capture import ScreenCapture
 from core.collector import DataCollector
 from core.detector import YoloDetector
-from core.mouse import MouseController, RecoilCompensator, move_mouse
+from core.mouse import AimFirePull, MouseController, RecoilCompensator, move_mouse
 from core.keys import (
     is_ads_and_firing,
     is_aim_trigger_active,
@@ -45,6 +45,17 @@ def put_latest(q: queue.Queue, item) -> None:
         q.put_nowait(item)
 
 
+def _take_latest(q: queue.Queue):
+    """Vide la queue et retourne le dernier item, ou None si vide."""
+    latest = None
+    try:
+        while True:
+            latest = q.get_nowait()
+    except queue.Empty:
+        pass
+    return latest
+
+
 @dataclass
 class DebugFrame:
     frame: np.ndarray
@@ -61,6 +72,7 @@ class AimPipeline:
         mouse: MouseController | None = None,
         collector: DataCollector | None = None,
         recoil: RecoilCompensator | None = None,
+        fire_pull: AimFirePull | None = None,
         *,
         aim_assist: bool = config.AIM_ASSIST,
         aim_assist_require_lmb: bool = config.AIM_ASSIST_REQUIRE_LMB,
@@ -75,6 +87,7 @@ class AimPipeline:
         self._mouse = mouse
         self._collector = collector
         self._recoil = recoil
+        self._fire_pull = fire_pull
         self._aim_assist = aim_assist
         self._aim_assist_require_lmb = aim_assist_require_lmb
         self._aim_assist_require_rmb = aim_assist_require_rmb
@@ -89,10 +102,11 @@ class AimPipeline:
             else config.CONF_THRESHOLD
         )
         self._capture_idle_sleep_s = config.CAPTURE_IDLE_SLEEP_S
+        fused = recoil is not None or fire_pull is not None
         self._mouse_tick_s = (
-            config.NO_RECOIL_TICK_S if recoil is not None else MOUSE_QUEUE_TIMEOUT_S
+            config.NO_RECOIL_TICK_S if fused else MOUSE_QUEUE_TIMEOUT_S
         )
-        self._no_recoil_debug = config.NO_RECOIL_DEBUG if recoil is not None else False
+        self._no_recoil_debug = bool(fused and config.NO_RECOIL_DEBUG)
 
         self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
         self._target_queue: queue.Queue[dict | None] = queue.Queue(maxsize=1)
@@ -114,7 +128,12 @@ class AimPipeline:
         mouse = MouseController() if needs_mouse else None
         collector = DataCollector() if config.ENABLE_DATA_MINING else None
         recoil = RecoilCompensator() if config.NO_RECOIL else None
-        return cls(capture, detector, targeting, mouse, collector, recoil)
+        fire_pull = (
+            AimFirePull()
+            if config.AIM_ASSIST and config.AIM_FIRE_PULL_DY_PER_S > 0
+            else None
+        )
+        return cls(capture, detector, targeting, mouse, collector, recoil, fire_pull)
 
     @property
     def detector(self) -> YoloDetector:
@@ -145,7 +164,12 @@ class AimPipeline:
             return
 
         needs_mouse = (
-            (self._aim_assist or self._recoil is not None) and self._mouse is not None
+            (
+                self._aim_assist
+                or self._recoil is not None
+                or self._fire_pull is not None
+            )
+            and self._mouse is not None
         )
         if needs_mouse:
             self._mouse.open()
@@ -251,10 +275,10 @@ class AimPipeline:
     def _mouse_loop(self) -> None:
         assert self._mouse is not None
 
-        if self._recoil is None:
+        if self._recoil is None and self._fire_pull is None:
             self._mouse_loop_aim_only()
         else:
-            self._mouse_loop_with_recoil()
+            self._mouse_loop_fused()
 
     def _mouse_loop_aim_only(self) -> None:
         """Aim seul : se réveille sur la queue (latence mini)."""
@@ -279,10 +303,9 @@ class AimPipeline:
 
             self._mouse.apply(target["dx"], target["dy"], target["distance"])
 
-    def _mouse_loop_with_recoil(self) -> None:
-        """Aim + no-recoil : tick fixe, un seul write Serial fusionné."""
+    def _mouse_loop_fused(self) -> None:
+        """Aim + jitter no-recoil + fire-pull : tick fixe, un write Serial."""
         assert self._mouse is not None
-        assert self._recoil is not None
 
         tick = self._mouse_tick_s
         debug = self._no_recoil_debug
@@ -291,13 +314,7 @@ class AimPipeline:
 
         while not self._stop.is_set():
             loop_start = time.perf_counter()
-
-            target = None
-            try:
-                while True:
-                    target = self._target_queue.get_nowait()
-            except queue.Empty:
-                pass
+            target = _take_latest(self._target_queue)
 
             if self._stop.is_set():
                 break
@@ -313,14 +330,22 @@ class AimPipeline:
                     target["dx"], target["dy"], target["distance"]
                 )
 
-            if is_ads_and_firing():
-                recoil_x, recoil_y = self._recoil.tick(now)
+            recoil_x = recoil_y = 0
+            pull_y = 0
+            ads_firing = is_ads_and_firing()
+            if ads_firing:
+                if self._recoil is not None:
+                    recoil_x, recoil_y = self._recoil.tick(now)
+                if self._fire_pull is not None:
+                    pull_y = self._fire_pull.tick(now)
             else:
-                self._recoil.reset()
-                recoil_x = recoil_y = 0
+                if self._recoil is not None:
+                    self._recoil.reset()
+                if self._fire_pull is not None:
+                    self._fire_pull.reset()
 
             out_x = aim_x + recoil_x
-            out_y = aim_y + recoil_y
+            out_y = aim_y + recoil_y + pull_y
             if out_x != 0 or out_y != 0:
                 move_mouse(out_x, out_y)
                 if recoil_x != 0 or recoil_y != 0:
@@ -329,11 +354,11 @@ class AimPipeline:
             if debug and now - last_debug >= 0.5:
                 last_debug = now
                 print(
-                    f"[no-recoil] LMB={int(is_left_mouse_pressed())} "
+                    f"[mouse] LMB={int(is_left_mouse_pressed())} "
                     f"RMB={int(is_right_mouse_pressed())} "
-                    f"firing={int(is_ads_and_firing())} "
-                    f"aim=<{aim_x},{aim_y}> recoil=<{recoil_x},{recoil_y}> "
-                    f"sent_ticks={recoil_sent}"
+                    f"ads_fire={int(ads_firing)} "
+                    f"aim=<{aim_x},{aim_y}> jitter=<{recoil_x},{recoil_y}> "
+                    f"pull_y={pull_y} jitter_ticks={recoil_sent}"
                 )
                 recoil_sent = 0
 

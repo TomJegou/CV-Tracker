@@ -10,6 +10,7 @@ from serial import SerialException, SerialTimeoutException
 
 from core.config import (
     AIM_DEBUG_MOVES,
+    AIM_FIRE_PULL_DY_PER_S,
     AIM_MODE,
     ARDUINO_BAUD,
     ARDUINO_OPEN_RETRIES,
@@ -203,6 +204,40 @@ class MouseController:
         return move_x, move_y
 
 
+class AimFirePull:
+    """Pull-down constant (px/s) tant que LMB+RMB sont maintenus."""
+
+    def __init__(
+        self,
+        dy_per_s: float = AIM_FIRE_PULL_DY_PER_S,
+        *,
+        max_dt_s: float = 0.05,
+    ):
+        self._dy_per_s = float(dy_per_s)
+        self._max_dt_s = max_dt_s
+        self._carry = 0.0
+        self._last_tick: float | None = None
+
+    def reset(self) -> None:
+        self._carry = 0.0
+        self._last_tick = None
+
+    def tick(self, now: float) -> int:
+        if self._dy_per_s <= 0.0:
+            return 0
+        if self._last_tick is None:
+            self._last_tick = now
+            return 0
+        dt = min(now - self._last_tick, self._max_dt_s)
+        self._last_tick = now
+        if dt <= 0.0:
+            return 0
+        self._carry += self._dy_per_s * dt
+        move_y = int(self._carry)
+        self._carry -= move_y
+        return move_y
+
+
 class RecoilCompensator:
     """Jitter aim Apex : tremblement sec sur X et Y pendant LMB+RMB."""
 
@@ -224,9 +259,8 @@ class RecoilCompensator:
         self._dx = 0
         self._dy = 0
 
-    def tick(self, now: float) -> tuple[int, int]:
+    def tick(self, _now: float = 0.0) -> tuple[int, int]:
         """Tick impair : vecteur aléatoire ±amp ; tick pair : inverse exact (dérive ~0)."""
-        del now  # cadence gérée par le thread mouse
         if self._pending_return:
             self._pending_return = False
             return -self._dx, -self._dy

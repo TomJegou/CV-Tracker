@@ -23,6 +23,10 @@ def _print_status(pipeline: AimPipeline) -> None:
     if config.AIM_ASSIST:
         trigger = describe_aim_trigger()
         print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
+        if config.AIM_FIRE_PULL_DY_PER_S > 0:
+            print(
+                f"Aim fire-pull : {config.AIM_FIRE_PULL_DY_PER_S:.0f} px/s bas (LMB+RMB)"
+            )
     else:
         print("Aim : désactivé (détection seule)")
 
@@ -32,9 +36,14 @@ def _print_status(pipeline: AimPipeline) -> None:
             f"{config.NO_RECOIL_JITTER_MIN}–{config.NO_RECOIL_JITTER_MAX} px "
             f"(LMB+RMB, via Arduino)"
         )
-        if config.NO_RECOIL_DEBUG:
-            print("No-recoil DEBUG : logs [no-recoil] toutes les 0.5 s — "
-                  "vérifie LMB=1 RMB=1 firing=1 en tirant")
+
+    if config.NO_RECOIL_DEBUG and (
+        config.NO_RECOIL or config.AIM_FIRE_PULL_DY_PER_S > 0
+    ):
+        print(
+            "Mouse DEBUG : logs [mouse] toutes les 0.5 s "
+            "(LMB/RMB, aim, jitter, pull)"
+        )
 
     if config.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
         infer = min(config.CONF_THRESHOLD, config.DATA_MINING_CONF)

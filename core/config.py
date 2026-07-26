@@ -30,19 +30,22 @@ TARGET_CLASS_ID = 0
 AIM_MODE = "assist"
 LOCK_SCALE = 1.0
 AIM_DEBUG_MOVES = False
-MAX_SMOOTHING = 0.9
-MAGNETIC_RADIUS = 150.0
+MAX_SMOOTHING = 1.0
+MAGNETIC_RADIUS = 125.0
 # Point visé dans la box YOLO (0=bord gauche/haut, 0.5=centre, 1=bord droit/bas).
 # Ex. Y=0.30 ≈ haut du corps / tête ; X=0.50 = centre horizontal.
 AIM_POINT_X = 0.50
-AIM_POINT_Y = 0.45
+AIM_POINT_Y = 0.34
+# Pull-down pendant ADS+tir (LMB+RMB), en px/s (positif = vers le bas). 0 = désactivé.
+AIM_FIRE_PULL_DY_PER_S = 100.0
 
 # --- No-recoil (jitter aim Apex) ---
 # LMB+RMB → aller/retour sec X+Y (amplitude min–max px), via Arduino.
 NO_RECOIL = True
 NO_RECOIL_JITTER_MIN = 5     # amplitude px (axes X et Y)
 NO_RECOIL_JITTER_MAX = 5
-NO_RECOIL_TICK_S = 0.005     # période (~200 Hz)
+# Période du thread mouse en mode fusionné (jitter et/ou fire-pull).
+NO_RECOIL_TICK_S = 0.002     # ~500 Hz
 NO_RECOIL_DEBUG = False
 
 # --- Arduino Leonardo (injection HID via Serial) ---
