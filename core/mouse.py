@@ -204,7 +204,7 @@ class MouseController:
 
 
 class RecoilCompensator:
-    """Jitter aim Apex : tremblement fin sur X et Y pendant LMB+RMB."""
+    """Jitter aim Apex : tremblement sec sur X et Y pendant LMB+RMB."""
 
     def __init__(
         self,
