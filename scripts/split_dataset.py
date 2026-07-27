@@ -10,7 +10,6 @@ from core.config import DATASET_TRAIN_DIR, DATASET_VAL_DIR
 from core.dataset_paths import (
     list_data_mining_dirs,
     list_dataset_source_dirs,
-    list_manual_dataset_dirs,
 )
 
 TRAIN_RATIO = 0.8
@@ -39,16 +38,13 @@ def collect_images(source_dirs: tuple[Path, ...]) -> list[Path]:
 
 
 def resolve_latest_source_dir() -> Path:
-    """Dernière session : priorite data_mining_{NNN}, sinon dernier vN."""
+    """Dernière session data_mining_{NNN}."""
     mining = list_data_mining_dirs()
     if mining:
         return mining[-1]
-    manual = list_manual_dataset_dirs()
-    if manual:
-        return manual[-1]
     raise FileNotFoundError(
         "Aucune source trouvée dans data/images_extraites/ "
-        "(v* / data_mining_*). Ou passe --dir."
+        "(data_mining_*). Ou passe --dir."
     )
 
 
@@ -73,7 +69,7 @@ def resolve_source_dirs(
     if not source_dirs:
         raise FileNotFoundError(
             "Aucune source trouvée dans data/images_extraites/ "
-            "(v* / data_mining_*). Ou passe --dir."
+            "(data_mining_*). Ou passe --dir."
         )
     return source_dirs
 
@@ -82,7 +78,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Split train/val depuis images_extraites. "
-            "Par défaut : fusionne toutes les sources v* + data_mining_*."
+            "Par défaut : fusionne toutes les sessions data_mining_*."
         ),
     )
     parser.add_argument(
@@ -99,10 +95,7 @@ def main() -> None:
     parser.add_argument(
         "--latest",
         action="store_true",
-        help=(
-            "Uniquement la dernière session data_mining_* "
-            "(sinon le dernier vN s'il n'y a pas de mining)."
-        ),
+        help="Uniquement la dernière session data_mining_*.",
     )
     args = parser.parse_args()
 

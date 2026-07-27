@@ -4,7 +4,6 @@ from pathlib import Path
 from core.config import CLASS_NAMES, DATA_DIR
 
 IMAGES_EXTRAITES_ROOT = DATA_DIR / "images_extraites"
-DERUSH_ROOT = DATA_DIR / "derush"
 DATA_MINING_DIR_PREFIX = "data_mining_"
 DATA_MINING_INDEX_WIDTH = 3  # data_mining_001, data_mining_002, …
 
@@ -62,24 +61,9 @@ def create_data_mining_session_dir() -> Path:
     return session_dir
 
 
-def list_manual_dataset_dirs() -> list[Path]:
-    """Dossiers annotés manuellement (v1, v2, v3, …)."""
-    if not IMAGES_EXTRAITES_ROOT.exists():
-        return []
-
-    indexed: list[tuple[int, Path]] = []
-    for path in IMAGES_EXTRAITES_ROOT.iterdir():
-        if not path.is_dir():
-            continue
-        if path.name.startswith("v") and path.name[1:].isdigit():
-            indexed.append((int(path.name[1:]), path))
-
-    return [path for _, path in sorted(indexed)]
-
-
 def list_dataset_source_dirs() -> tuple[Path, ...]:
-    """Toutes les sources pour split_dataset (manuel + sessions data mining)."""
-    return tuple(list_manual_dataset_dirs() + list_data_mining_dirs())
+    """Toutes les sources pour split_dataset (sessions data mining)."""
+    return tuple(list_data_mining_dirs())
 
 
 def list_auto_label_dirs(*, latest_only: bool = False) -> list[Path]:
@@ -90,33 +74,3 @@ def list_auto_label_dirs(*, latest_only: bool = False) -> list[Path]:
     if latest_only:
         return [mining_dirs[-1]]
     return mining_dirs
-
-
-def list_derush_dirs() -> list[Path]:
-    if not DERUSH_ROOT.exists():
-        return []
-
-    indexed: list[tuple[int, Path]] = []
-    for path in DERUSH_ROOT.iterdir():
-        if path.is_dir() and path.name.startswith("v") and path.name[1:].isdigit():
-            indexed.append((int(path.name[1:]), path))
-
-    return [path for _, path in sorted(indexed)]
-
-
-def default_derush_dir() -> Path:
-    dirs = list_derush_dirs()
-    return dirs[-1] if dirs else DERUSH_ROOT
-
-
-def create_manual_extract_dir() -> Path:
-    """Prochain dossier v{N} pour extract_frames (derush manuel)."""
-    IMAGES_EXTRAITES_ROOT.mkdir(parents=True, exist_ok=True)
-    manual_dirs = list_manual_dataset_dirs()
-    next_index = (
-        int(manual_dirs[-1].name[1:]) + 1 if manual_dirs else 1
-    )
-    output_dir = IMAGES_EXTRAITES_ROOT / f"v{next_index}"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    ensure_classes_txt(output_dir)
-    return output_dir

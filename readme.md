@@ -76,7 +76,7 @@ Règle `ARDUINO_PORT` dans `core/config.py`.
 | Module | Fichier | Rôle |
 |---|---|---|
 | Config | `core/config.py` | FOV, flags, seuils, COM Arduino, train |
-| Chemins dataset | `core/dataset_paths.py` | `v*` / `data_mining_{NNN}` |
+| Chemins dataset | `core/dataset_paths.py` | `data_mining_{NNN}` |
 | Chemins modèles | `core/model_paths.py` | `models/apex_{NNN}/` |
 | Capture | `core/capture.py` | FOV centré via dxcam (BGR) |
 | Inférence | `core/detector.py` | YOLO multiclasse + debug draw |
@@ -136,12 +136,11 @@ Defaults runtime = préférences machine : vérifier `ARDUINO_PORT`, et désacti
 python main.py                              # Dernier models/apex_* (.engine prioritaire)
 python main.py --model path/to/best.pt      # Override
 
-python scripts/extract_frames.py            # Derush → prochain images_extraites/vN/
 python scripts/auto_label.py                # Pré-anno (skip si .txt déjà présent)
 python scripts/auto_label.py --latest
 python scripts/auto_label.py --force        # Écrase les .txt mining / existants
 python scripts/auto_label.py --latest -f
-python scripts/split_dataset.py             # Fusionne toutes les sources v* + data_mining_*
+python scripts/split_dataset.py             # Fusionne toutes les sessions data_mining_*
 python scripts/split_dataset.py --latest    # Uniquement la dernière session data_mining_*
 python scripts/split_dataset.py -d chemin/  # Source(s) explicite(s)
 python scripts/train.py                     # Crée models/apex_{NNN}/
@@ -161,7 +160,7 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
    YOLO tourne à `DATA_MINING_CONF` ; l’aim ne voit que `conf ≥ CONF_THRESHOLD`.  
    Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
 2. **Correction** — LabelImg sur la session, ou `auto_label.py --force` pour régénérer la pré-anno YOLO
-3. **Split** — `python scripts/split_dataset.py` (toutes les sources ; `--latest` pour la dernière session mining)
+3. **Split** — `python scripts/split_dataset.py` (toutes les sessions ; `--latest` pour la dernière session mining)
 4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
 5. **Export** — `python scripts/export_engine.py`
 

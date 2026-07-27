@@ -19,8 +19,8 @@ CAPTURE_IDLE_SLEEP_S = 0.001
 
 # --- Détection ---
 # Seuil aim / targeting (boxes « propres »)
-CONF_THRESHOLD = 0.65
-AUTO_LABEL_CONF = 0.65
+CONF_THRESHOLD = 0.60
+AUTO_LABEL_CONF = 0.60
 # Multiclass (aligné sur apex.yaml) — id 0 = ennemi, id 1 = allie
 CLASS_NAMES = ("ennemi", "allie")
 TARGET_CLASS_ID = 0
@@ -31,11 +31,11 @@ AIM_MODE = "assist"
 LOCK_SCALE = 1.0
 AIM_DEBUG_MOVES = False
 MAX_SMOOTHING = 1.0
-MAGNETIC_RADIUS = 125.0
+MAGNETIC_RADIUS = 120.0
 # Point visé dans la box YOLO (0=bord gauche/haut, 0.5=centre, 1=bord droit/bas).
 # Ex. Y=0.30 ≈ haut du corps / tête ; X=0.50 = centre horizontal.
 AIM_POINT_X = 0.50
-AIM_POINT_Y = 0.34
+AIM_POINT_Y = 0.40
 # Pull-down pendant ADS+tir (LMB+RMB), en px/s (positif = vers le bas). 0 = désactivé.
 AIM_FIRE_PULL_DY_PER_S = 100.0
 

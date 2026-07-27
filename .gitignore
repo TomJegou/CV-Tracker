@@ -12,31 +12,8 @@ env/
 datasets/
 
 # Données lourdes
-data/derush/**
-!data/derush/.gitkeep
-!data/derush/v1/
-!data/derush/v1/.gitkeep
-!data/derush/v2/
-!data/derush/v2/.gitkeep
-!data/derush/v3/
-!data/derush/v3/.gitkeep
-!data/derush/v4/
-!data/derush/v4/.gitkeep
-
 data/images_extraites/**
 !data/images_extraites/.gitkeep
-!data/images_extraites/v1/
-!data/images_extraites/v1/.gitkeep
-!data/images_extraites/v1/classes.txt
-!data/images_extraites/v2/
-!data/images_extraites/v2/.gitkeep
-!data/images_extraites/v2/classes.txt
-!data/images_extraites/v3/
-!data/images_extraites/v3/.gitkeep
-!data/images_extraites/v3/classes.txt
-!data/images_extraites/v4/
-!data/images_extraites/v4/.gitkeep
-!data/images_extraites/v4/classes.txt
 !data/images_extraites/data_mining_*/
 !data/images_extraites/data_mining_*/classes.txt
 
