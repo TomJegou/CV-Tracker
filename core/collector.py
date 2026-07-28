@@ -106,14 +106,15 @@ class DataCollector:
         height, width = image.shape[:2]
         yolo_text = detections_to_yolo_text(detections, width, height)
 
+        # Intervalle [min, max) : conf == MAX (= seuil aim) n'est plus un FP suspect.
         if enemies and any(
-            self._uncertain_min <= det["conf"] <= self._uncertain_max
+            self._uncertain_min <= det["conf"] < self._uncertain_max
             for det in enemies
         ):
             self._add_image(image, "fp_suspect", yolo_text)
 
         if allies and any(
-            self._uncertain_min <= det["conf"] <= self._uncertain_max
+            self._uncertain_min <= det["conf"] < self._uncertain_max
             for det in allies
         ):
             self._add_image(image, "ally_fp_suspect", yolo_text)

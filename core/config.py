@@ -65,7 +65,7 @@ ARDUINO_OPEN_RETRY_S = 0.4
 ENABLE_DATA_MINING = False
 # Plancher YOLO quand mining ON (une passe ; aim filtre ensuite à CONF_THRESHOLD)
 DATA_MINING_CONF = 0.40
-# Bande FP suspect : [MIN, MAX] avec MAX ≤ CONF_THRESHOLD (évite de miner des boxes aim-valides)
+# Bande FP suspect : [MIN, MAX) — MAX = CONF_THRESHOLD exclut les boxes aim-valides (conf >= seuil)
 DATA_MINING_UNCERTAIN_MIN = 0.40
 DATA_MINING_UNCERTAIN_MAX = 0.65
 # FN suspect : LMB+RMB et meilleure conf ennemi < ce seuil (≤ CONF_THRESHOLD)

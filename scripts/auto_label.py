@@ -58,12 +58,11 @@ def process_directory(
     *,
     force: bool = False,
 ) -> dict[str, int]:
-    all_images = sorted(source_dir.glob("*.jpg"))
-    images = all_images
+    images = sorted(source_dir.glob("*.jpg"))
     total_images = len(images)
 
     print(f"\nDossier : {source_dir}/")
-    print(f"{len(all_images)} image(s) trouvée(s)")
+    print(f"{total_images} image(s) trouvée(s)")
     if force:
         print("Mode --force : les .txt existants seront écrasés.")
 
@@ -83,11 +82,21 @@ def process_directory(
     overwritten_count = 0
     class_totals: dict[int, int] = {}
 
+    def _print_progress(index: int) -> None:
+        print(
+            f"Progression : {index}/{total_images} "
+            f"({labeled_count} avec cibles, {empty_count} vides, "
+            f"{preserved_count} déjà labellisées, "
+            f"{overwritten_count} écrasées)"
+        )
+
     for index, image_path in enumerate(images, start=1):
         label_path = image_path.with_suffix(".txt")
         had_label = label_path.exists()
         if had_label and not force:
             preserved_count += 1
+            if index % 50 == 0 or index == total_images:
+                _print_progress(index)
             continue
 
         box_count, per_class = auto_label_image(model, image_path)
@@ -103,12 +112,7 @@ def process_directory(
             class_totals[class_id] = class_totals.get(class_id, 0) + count
 
         if index % 50 == 0 or index == total_images:
-            print(
-                f"Progression : {index}/{total_images} "
-                f"({labeled_count} avec cibles, {empty_count} vides, "
-                f"{preserved_count} déjà labellisées, "
-                f"{overwritten_count} écrasées)"
-            )
+            _print_progress(index)
 
     print("  Résultat :")
     print(f"    Images traitées : {total_images}")

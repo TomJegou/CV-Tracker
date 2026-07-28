@@ -61,16 +61,16 @@ def create_data_mining_session_dir() -> Path:
     return session_dir
 
 
-def list_dataset_source_dirs() -> tuple[Path, ...]:
-    """Toutes les sources pour split_dataset (sessions data mining)."""
-    return tuple(list_data_mining_dirs())
+def list_dataset_source_dirs(*, latest_only: bool = False) -> tuple[Path, ...]:
+    """Sources pour split / auto-label (sessions data_mining_*)."""
+    mining_dirs = list_data_mining_dirs()
+    if not mining_dirs:
+        return ()
+    if latest_only:
+        return (mining_dirs[-1],)
+    return tuple(mining_dirs)
 
 
 def list_auto_label_dirs(*, latest_only: bool = False) -> list[Path]:
     """Dossiers data_mining_* à pré-annoter."""
-    mining_dirs = list_data_mining_dirs()
-    if not mining_dirs:
-        return []
-    if latest_only:
-        return [mining_dirs[-1]]
-    return mining_dirs
+    return list(list_dataset_source_dirs(latest_only=latest_only))

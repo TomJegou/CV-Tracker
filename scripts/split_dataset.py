@@ -7,10 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.config import DATASET_TRAIN_DIR, DATASET_VAL_DIR
-from core.dataset_paths import (
-    list_data_mining_dirs,
-    list_dataset_source_dirs,
-)
+from core.dataset_paths import list_dataset_source_dirs
 
 TRAIN_RATIO = 0.8
 RANDOM_SEED = 42
@@ -37,17 +34,6 @@ def collect_images(source_dirs: tuple[Path, ...]) -> list[Path]:
     return sorted(by_name.values())
 
 
-def resolve_latest_source_dir() -> Path:
-    """Dernière session data_mining_{NNN}."""
-    mining = list_data_mining_dirs()
-    if mining:
-        return mining[-1]
-    raise FileNotFoundError(
-        "Aucune source trouvée dans data/images_extraites/ "
-        "(data_mining_*). Ou passe --dir."
-    )
-
-
 def resolve_source_dirs(
     dirs: list[Path] | None,
     *,
@@ -62,10 +48,7 @@ def resolve_source_dirs(
             source_dirs.append(resolved)
         return tuple(source_dirs)
 
-    if latest_only:
-        return (resolve_latest_source_dir(),)
-
-    source_dirs = list_dataset_source_dirs()
+    source_dirs = list_dataset_source_dirs(latest_only=latest_only)
     if not source_dirs:
         raise FileNotFoundError(
             "Aucune source trouvée dans data/images_extraites/ "

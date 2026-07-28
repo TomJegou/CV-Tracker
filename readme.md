@@ -36,7 +36,7 @@ Adapte l’index CUDA (`cu118` / `cu124` / `cu130`) à ton driver. TensorRT pour
 
 ---
 
-## 3. Matériel aim (requis si `AIM_ASSIST=True`)
+## 3. Matériel aim (requis si `AIM_ASSIST`, `NO_RECOIL` ou fire-pull)
 
 Deux setups possibles (même protocole Serial `<dx,dy>\n` @ 115200, même Python).
 
@@ -82,14 +82,14 @@ Règle `ARDUINO_PORT` dans `core/config.py`.
 | Inférence | `core/detector.py` | YOLO multiclasse + debug draw |
 | Ciblage | `core/targeting.py` | Ennemi le plus proche du réticule |
 | Touches | `core/keys.py` | État LMB/RMB (`GetAsyncKeyState`) |
-| Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist` + no-recoil) |
+| Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist` + jitter + fire-pull) |
 | Data mining | `core/collector.py` | FP/FN suspects → `data_mining_{NNN}/` |
 | Pipeline | `core/pipeline.py` | Threads capture / detect / mouse |
 
 ```
 Thread capture  → frame_queue (size=1)
 Thread detect   → YOLO + targeting + (mining) + debug_queue
-Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST ou NO_RECOIL]
+Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST / NO_RECOIL / fire-pull]
 Thread main     → fenêtre OpenCV                      [si DEBUG]
 ```
 
@@ -123,7 +123,9 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |
-| `DATA_MINING_UNCERTAIN_*` | Bande FP suspect (≤ `CONF_THRESHOLD`) |
+| `DATA_MINING_UNCERTAIN_*` | Bande FP suspect `[MIN, MAX)` — `MAX` = `CONF_THRESHOLD` |
+| `DATA_MINING_FN_MAX_CONF` | FN / confusion si meilleure conf ennemi < ce seuil + LMB+RMB |
+| `DATA_MINING_COOLDOWN_FP` / `_FN` | Cooldown anti-spam entre captures (s) |
 | `CAPTURE_IDLE_SLEEP_S` | Sleep si `grab()` = None (anti busy-loop) |
 | `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
@@ -171,8 +173,8 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
 
 | Raison | Condition |
 |---|---|
-| `fp_suspect` | Ennemi conf. dans la bande incertaine |
-| `ally_fp_suspect` | Allié conf. dans la bande incertaine |
+| `fp_suspect` | Ennemi conf. dans la bande incertaine `[MIN, MAX)` |
+| `ally_fp_suspect` | Allié conf. dans la bande incertaine `[MIN, MAX)` |
 | `enemy_as_ally_suspect` | Tir (LMB+RMB), pas d’ennemi confiant, allié détecté |
 | `fn_suspect` | Tir (LMB+RMB), conf. ennemi trop basse |
 
