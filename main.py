@@ -23,9 +23,12 @@ def _print_status(pipeline: AimPipeline) -> None:
     if config.AIM_ASSIST:
         trigger = describe_aim_trigger()
         print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
-        if config.AIM_FIRE_PULL_DY_PER_S > 0:
+        if max(config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S) > 0:
             print(
-                f"Aim fire-pull : {config.AIM_FIRE_PULL_DY_PER_S:.0f} px/s bas (LMB+RMB)"
+                f"Aim fire-pull : {config.AIM_FIRE_PULL_PEAK_DY_PER_S:.0f} -> "
+                f"{config.AIM_FIRE_PULL_DY_PER_S:.0f} px/s "
+                f"(peak {config.AIM_FIRE_PULL_PEAK_DURATION_S * 1000:.0f} ms, "
+                f"decay {config.AIM_FIRE_PULL_DECAY_S * 1000:.0f} ms, LMB+RMB)"
             )
     else:
         print("Aim : désactivé (détection seule)")
@@ -38,7 +41,8 @@ def _print_status(pipeline: AimPipeline) -> None:
         )
 
     if config.NO_RECOIL_DEBUG and (
-        config.NO_RECOIL or config.AIM_FIRE_PULL_DY_PER_S > 0
+        config.NO_RECOIL
+        or max(config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S) > 0
     ):
         print(
             "Mouse DEBUG : logs [mouse] toutes les 0.5 s "

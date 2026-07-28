@@ -111,7 +111,10 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
 | `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
-| `AIM_FIRE_PULL_DY_PER_S` | Pull-down pendant LMB+RMB (px/s ; 0 = off) |
+| `AIM_FIRE_PULL_PEAK_DY_PER_S` | Pull initial fort (début de spray, px/s) |
+| `AIM_FIRE_PULL_PEAK_DURATION_S` | Durée du peak avant transition |
+| `AIM_FIRE_PULL_DECAY_S` | Transition linéaire peak → plateau |
+| `AIM_FIRE_PULL_DY_PER_S` | Pull plateau (fin de spray ; 0 = off si peak aussi à 0) |
 | `AIM_DEBUG_MOVES` | Log stdout des SNAP |
 | `NO_RECOIL` | Jitter aim X/Y sur LMB+RMB (via Arduino) |
 | `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |

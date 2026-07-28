@@ -130,7 +130,12 @@ class AimPipeline:
         recoil = RecoilCompensator() if config.NO_RECOIL else None
         fire_pull = (
             AimFirePull()
-            if config.AIM_ASSIST and config.AIM_FIRE_PULL_DY_PER_S > 0
+            if config.AIM_ASSIST
+            and max(
+                config.AIM_FIRE_PULL_DY_PER_S,
+                config.AIM_FIRE_PULL_PEAK_DY_PER_S,
+            )
+            > 0
             else None
         )
         return cls(capture, detector, targeting, mouse, collector, recoil, fire_pull)
@@ -353,12 +358,16 @@ class AimPipeline:
 
             if debug and now - last_debug >= 0.5:
                 last_debug = now
+                pull_rate = (
+                    self._fire_pull.current_rate if self._fire_pull is not None else 0.0
+                )
                 print(
                     f"[mouse] LMB={int(is_left_mouse_pressed())} "
                     f"RMB={int(is_right_mouse_pressed())} "
                     f"ads_fire={int(ads_firing)} "
                     f"aim=<{aim_x},{aim_y}> jitter=<{recoil_x},{recoil_y}> "
-                    f"pull_y={pull_y} jitter_ticks={recoil_sent}"
+                    f"pull_y={pull_y} pull_rate={pull_rate:.0f} "
+                    f"jitter_ticks={recoil_sent}"
                 )
                 recoil_sent = 0
 

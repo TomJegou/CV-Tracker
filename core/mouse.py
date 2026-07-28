@@ -10,7 +10,10 @@ from serial import SerialException, SerialTimeoutException
 
 from core.config import (
     AIM_DEBUG_MOVES,
+    AIM_FIRE_PULL_DECAY_S,
     AIM_FIRE_PULL_DY_PER_S,
+    AIM_FIRE_PULL_PEAK_DURATION_S,
+    AIM_FIRE_PULL_PEAK_DY_PER_S,
     AIM_MODE,
     ARDUINO_BAUD,
     ARDUINO_OPEN_RETRIES,
@@ -205,25 +208,53 @@ class MouseController:
 
 
 class AimFirePull:
-    """Pull-down constant (px/s) tant que LMB+RMB sont maintenus."""
+    """Pull-down courbe (peak -> plateau) tant que LMB+RMB sont maintenus."""
 
     def __init__(
         self,
         dy_per_s: float = AIM_FIRE_PULL_DY_PER_S,
         *,
+        peak_dy_per_s: float = AIM_FIRE_PULL_PEAK_DY_PER_S,
+        peak_duration_s: float = AIM_FIRE_PULL_PEAK_DURATION_S,
+        decay_s: float = AIM_FIRE_PULL_DECAY_S,
         max_dt_s: float = 0.05,
     ):
         self._dy_per_s = float(dy_per_s)
+        self._peak_dy_per_s = float(peak_dy_per_s)
+        self._peak_duration_s = max(0.0, float(peak_duration_s))
+        self._decay_s = max(0.0, float(decay_s))
         self._max_dt_s = max_dt_s
         self._carry = 0.0
+        self._elapsed_s = 0.0
         self._last_tick: float | None = None
+
+    @property
+    def current_rate(self) -> float:
+        """Taux de pull courant (px/s) selon le temps écoulé depuis le début du tir."""
+        return self._rate_at(self._elapsed_s)
 
     def reset(self) -> None:
         self._carry = 0.0
+        self._elapsed_s = 0.0
         self._last_tick = None
 
+    def _rate_at(self, elapsed_s: float) -> float:
+        peak = self._peak_dy_per_s
+        sustain = self._dy_per_s
+        if self._peak_duration_s <= 0.0 or peak <= sustain:
+            return sustain
+        if elapsed_s <= self._peak_duration_s:
+            return peak
+        if self._decay_s <= 0.0:
+            return sustain
+        t = elapsed_s - self._peak_duration_s
+        if t >= self._decay_s:
+            return sustain
+        # Interpolation linéaire peak -> plateau
+        return peak + (sustain - peak) * (t / self._decay_s)
+
     def tick(self, now: float) -> int:
-        if self._dy_per_s <= 0.0:
+        if max(self._dy_per_s, self._peak_dy_per_s) <= 0.0:
             return 0
         if self._last_tick is None:
             self._last_tick = now
@@ -232,7 +263,9 @@ class AimFirePull:
         self._last_tick = now
         if dt <= 0.0:
             return 0
-        self._carry += self._dy_per_s * dt
+        rate = self._rate_at(self._elapsed_s)
+        self._elapsed_s += dt
+        self._carry += rate * dt
         move_y = int(self._carry)
         self._carry -= move_y
         return move_y
