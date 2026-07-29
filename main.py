@@ -7,6 +7,7 @@ import cv2
 from serial import SerialException
 
 from core import config
+from core.arduino_port import resolve_arduino_port
 from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
 from core.pipeline import AimPipeline, PipelineError
@@ -39,6 +40,14 @@ def _print_status(pipeline: AimPipeline) -> None:
             f"{config.NO_RECOIL_JITTER_MIN}–{config.NO_RECOIL_JITTER_MAX} px "
             f"(LMB+RMB, via Arduino)"
         )
+
+    if config.AIM_ASSIST or config.NO_RECOIL:
+        configured = config.ARDUINO_PORT
+        resolved = resolve_arduino_port(configured)
+        if configured is None or str(configured).strip().lower() in ("", "auto"):
+            print(f"Arduino : auto → {resolved}")
+        else:
+            print(f"Arduino : {resolved}")
 
     if config.NO_RECOIL_DEBUG and (
         config.NO_RECOIL
@@ -122,6 +131,10 @@ def main() -> int:
         print(f"\nArrêt : {exc}")
         exit_code = 1
     except FileNotFoundError as exc:
+        print(exc)
+        exit_code = 1
+    except RuntimeError as exc:
+        # Détection port Arduino ambiguë / introuvable
         print(exc)
         exit_code = 1
     except SerialException as exc:

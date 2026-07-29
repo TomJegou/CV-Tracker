@@ -53,7 +53,8 @@ NO_RECOIL_TICK_S = 0.001     # 1000 Hz
 NO_RECOIL_DEBUG = False
 
 # --- Arduino Leonardo (injection HID via Serial) ---
-ARDUINO_PORT = "COM5"
+# None / "auto" = détection ; sinon override explicite (ex. "COM5")
+ARDUINO_PORT: str | None = None
 ARDUINO_BAUD = 115200
 # Pause à l'ouverture du port (reset CDC Leonardo). 0 pour skip.
 ARDUINO_SETTLE_S = 2.0

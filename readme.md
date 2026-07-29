@@ -64,10 +64,11 @@ Flash : [`arduino/mouse_fusion/mouse_fusion.ino`](arduino/mouse_fusion/mouse_fus
 
 ```bash
 python scripts/arduino_serial_test.py --list
-python scripts/arduino_serial_test.py --port COM5
+python scripts/arduino_serial_test.py              # auto-détecte le Leonardo
+python scripts/arduino_serial_test.py --port COM5  # override
 ```
 
-Règle `ARDUINO_PORT` dans `core/config.py`.
+`ARDUINO_PORT` dans `core/config.py` : `None` / `"auto"` = détection ; `"COM5"` = forcé.
 
 ---
 
@@ -131,11 +132,11 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `REINFER_ALWAYS_REVIEW_REASONS` | Raisons forcées en REVIEW (ex. confusion de classe) |
 | `REINFER_MANUAL_EDIT_MARGIN_S` | Marge mtime pour détecter une correction LabelImg |
 | `CAPTURE_IDLE_SLEEP_S` | Sleep si `grab()` = None (anti busy-loop) |
-| `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
+| `ARDUINO_PORT` | `None` / `"auto"` = détection ; sinon `"COMx"` |
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
 | `ARDUINO_OPEN_RETRIES` | Relances si COM verrouillé (Ctrl+C) |
 
-Defaults runtime = préférences machine : vérifier `ARDUINO_PORT`, et désactiver `AIM_ASSIST` / `DEBUG` si tu lances sans Leonardo.
+Defaults runtime = préférences machine : `ARDUINO_PORT=None` (auto) convient en général ; désactiver `AIM_ASSIST` / `DEBUG` si tu lances sans Leonardo.
 
 ---
 
@@ -200,8 +201,8 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
 |---|---|
 | `PermissionError` / accès refusé sur COMx | Attendre 2–3 s après Ctrl+C ; fermer le Moniteur Série Arduino |
 | Souris morte / pas de fusion | Sketch `mouse_fusion` flashé ? Host Shield OK ? Souris sur le shield ? |
-| Python envoie des SNAP mais rien en jeu | Mauvais `ARDUINO_PORT` ; tester avec `arduino_serial_test.py` |
-| COM change après reset Leonardo | Vérifier le Gestionnaire de périphériques → mettre à jour `ARDUINO_PORT` |
+| Python envoie des SNAP mais rien en jeu | Mauvais port ; `arduino_serial_test.py --list` puis `ARDUINO_PORT` |
+| COM change après reset Leonardo | Auto en général ; sinon fixe `ARDUINO_PORT` |
 
 ---
 

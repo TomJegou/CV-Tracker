@@ -5,6 +5,7 @@ Baud rate : 115200
 
 Usage :
     python scripts/arduino_serial_test.py --list
+    python scripts/arduino_serial_test.py              # auto-détecte
     python scripts/arduino_serial_test.py --port COM3
     python scripts/arduino_serial_test.py --port COM3 --hz 60 --duration 10
 """
@@ -12,19 +13,20 @@ import argparse
 import random
 import sys
 import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 try:
     import serial
-    from serial.tools import list_ports
 except ImportError:
     print("pyserial manquant — installe avec : pip install pyserial")
     sys.exit(1)
 
-BAUD_RATE = 115200
+from core.arduino_port import list_serial_port_summaries, resolve_arduino_port
+from core.config import ARDUINO_BAUD
 
-
-def list_serial_ports() -> list[str]:
-    return [port.device for port in list_ports.comports()]
+BAUD_RATE = ARDUINO_BAUD
 
 
 def format_move(dx: int, dy: int) -> bytes:
@@ -89,7 +91,8 @@ def main() -> None:
     parser.add_argument(
         "--port",
         "-p",
-        help="Port série (ex. COM3). Auto-détecté si un seul port disponible.",
+        default=None,
+        help="Port série (ex. COM3). Défaut : auto-détection Arduino.",
     )
     parser.add_argument(
         "--list",
@@ -118,30 +121,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ports = list_serial_ports()
-
     if args.list:
-        if ports:
+        summaries = list_serial_port_summaries()
+        if summaries:
             print("Ports série disponibles :")
-            for device in ports:
-                print(f"  {device}")
+            for line in summaries:
+                print(f"  {line}")
         else:
             print("Aucun port série détecté.")
         return
 
-    port = args.port
-    if port is None:
-        if len(ports) == 1:
-            port = ports[0]
-            print(f"Port auto-détecté : {port}")
-        elif not ports:
-            print("Aucun port série trouvé. Branche l'Arduino et relance avec --list.")
-            sys.exit(1)
-        else:
-            print("Plusieurs ports détectés — précise --port :")
-            for device in ports:
-                print(f"  {device}")
-            sys.exit(1)
+    try:
+        port = resolve_arduino_port(args.port)
+    except RuntimeError as exc:
+        print(exc)
+        sys.exit(1)
+
+    if args.port is None or str(args.port).strip().lower() in ("", "auto"):
+        print(f"Port auto-détecté : {port}")
 
     run_test(
         port,

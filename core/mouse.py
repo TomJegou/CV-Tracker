@@ -8,6 +8,7 @@ import time
 import serial
 from serial import SerialException, SerialTimeoutException
 
+from core.arduino_port import resolve_arduino_port
 from core.config import (
     AIM_DEBUG_MOVES,
     AIM_FIRE_PULL_DECAY_S,
@@ -33,14 +34,14 @@ class ArduinoMouse:
 
     def __init__(
         self,
-        port: str = ARDUINO_PORT,
+        port: str | None = ARDUINO_PORT,
         baudrate: int = ARDUINO_BAUD,
         *,
         settle_s: float = ARDUINO_SETTLE_S,
         open_retries: int = ARDUINO_OPEN_RETRIES,
         open_retry_s: float = ARDUINO_OPEN_RETRY_S,
     ):
-        self.port = port
+        self.port = resolve_arduino_port(port)
         self.baudrate = baudrate
         self._settle_s = settle_s
         self._open_retries = max(1, open_retries)
