@@ -16,7 +16,7 @@ from core.config import (
     DATA_MINING_UNCERTAIN_MIN,
     TARGET_CLASS_ID,
 )
-from core.dataset_paths import create_data_mining_session_dir
+from core.dataset_paths import MINING_REASONS, create_data_mining_session_dir
 
 # Sentinel pour arrêter le worker proprement
 _STOP = object()
@@ -62,10 +62,12 @@ class DataCollector:
         self._uncertain_max = uncertain_max
         self._fn_max_conf = fn_max_conf
         self._cooldowns = {
-            "fp_suspect": cooldown_fp,
-            "fn_suspect": cooldown_fn,
-            "ally_fp_suspect": cooldown_fp,
-            "enemy_as_ally_suspect": cooldown_fn,
+            reason: (
+                cooldown_fn
+                if reason in ("fn_suspect", "enemy_as_ally_suspect")
+                else cooldown_fp
+            )
+            for reason in sorted(MINING_REASONS)
         }
         self._last_capture: dict[str, float] = {}
         self._queue: queue.Queue = queue.Queue()

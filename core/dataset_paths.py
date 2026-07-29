@@ -6,6 +6,15 @@ from core.config import CLASS_NAMES, DATA_DIR
 IMAGES_EXTRAITES_ROOT = DATA_DIR / "images_extraites"
 DATA_MINING_DIR_PREFIX = "data_mining_"
 DATA_MINING_INDEX_WIDTH = 3  # data_mining_001, data_mining_002, …
+REVIEW_SUBDIR = "review"
+SKIPPED_SUBDIR = "skipped"
+
+MINING_REASONS = frozenset({
+    "fp_suspect",
+    "ally_fp_suspect",
+    "fn_suspect",
+    "enemy_as_ally_suspect",
+})
 
 
 def format_data_mining_dir_name(index: int) -> str:
@@ -74,3 +83,30 @@ def list_dataset_source_dirs(*, latest_only: bool = False) -> tuple[Path, ...]:
 def list_auto_label_dirs(*, latest_only: bool = False) -> list[Path]:
     """Dossiers data_mining_* à pré-annoter."""
     return list(list_dataset_source_dirs(latest_only=latest_only))
+
+
+def parse_mining_reason(image_path: Path) -> str | None:
+    """Extrait la raison de capture depuis le stem (`…_fp_suspect.jpg`)."""
+    stem = image_path.stem
+    for reason in sorted(MINING_REASONS, key=len, reverse=True):
+        if stem.endswith(f"_{reason}"):
+            return reason
+    return None
+
+
+def review_dir(session_dir: Path) -> Path:
+    return session_dir / REVIEW_SUBDIR
+
+
+def skipped_dir(session_dir: Path) -> Path:
+    return session_dir / SKIPPED_SUBDIR
+
+
+def list_review_dirs() -> list[Path]:
+    """Sous-dossiers review/ non vides sous les sessions data_mining_*."""
+    dirs: list[Path] = []
+    for session in list_data_mining_dirs():
+        path = review_dir(session)
+        if path.is_dir() and any(path.glob("*.jpg")):
+            dirs.append(path)
+    return dirs

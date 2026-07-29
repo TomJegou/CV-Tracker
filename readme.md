@@ -126,6 +126,10 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `DATA_MINING_UNCERTAIN_*` | Bande FP suspect `[MIN, MAX)` — `MAX` = `CONF_THRESHOLD` |
 | `DATA_MINING_FN_MAX_CONF` | FN / confusion si meilleure conf ennemi < ce seuil + LMB+RMB |
 | `DATA_MINING_COOLDOWN_FP` / `_FN` | Cooldown anti-spam entre captures (s) |
+| `REINFER_LOW_CONF` | Plancher YOLO pour la ré-inférence mining |
+| `REINFER_HIGH_CONF` | Seuil auto-accept (toutes boxes ≥ → AUTO) |
+| `REINFER_ALWAYS_REVIEW_REASONS` | Raisons forcées en REVIEW (ex. confusion de classe) |
+| `REINFER_MANUAL_EDIT_MARGIN_S` | Marge mtime pour détecter une correction LabelImg |
 | `CAPTURE_IDLE_SLEEP_S` | Sleep si `grab()` = None (anti busy-loop) |
 | `ARDUINO_PORT` | Ex. `"COM5"` — **à adapter** |
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
@@ -145,6 +149,10 @@ python scripts/auto_label.py                # Pré-anno (skip si .txt déjà pr�
 python scripts/auto_label.py --latest
 python scripts/auto_label.py --force        # Écrase les .txt mining / existants
 python scripts/auto_label.py --latest -f
+python scripts/reinfer_mining.py            # Dry-run triage (rapport CSV)
+python scripts/reinfer_mining.py --latest --apply
+python scripts/reinfer_mining.py --restore --only-manual  # Remonte seulement LabelImg
+python scripts/reinfer_mining.py --restore  # Remonte tout review/
 python scripts/split_dataset.py             # Fusionne toutes les sessions data_mining_*
 python scripts/split_dataset.py --latest    # Uniquement la dernière session data_mining_*
 python scripts/split_dataset.py -d chemin/  # Source(s) explicite(s)
@@ -164,10 +172,16 @@ Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester ve
 1. **Data mining** — `ENABLE_DATA_MINING=True` → `data/images_extraites/data_mining_{NNN}/`  
    YOLO tourne à `DATA_MINING_CONF` ; l’aim ne voit que `conf ≥ CONF_THRESHOLD`.  
    Chaque image est déjà accompagnée d’un `.txt` YOLO (boxes détectées, ou vide pour `fn_suspect`).
-2. **Correction** — LabelImg sur la session, ou `auto_label.py --force` pour régénérer la pré-anno YOLO
-3. **Split** — `python scripts/split_dataset.py` (toutes les sessions ; `--latest` pour la dernière session mining)
-4. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
-5. **Export** — `python scripts/export_engine.py`
+2. **Ré-inférence** — `python scripts/reinfer_mining.py --apply`  
+   Repasse le dernier `best.pt` : AUTO (`.txt` réécrit), NEGATIF (hard neg), REVIEW (`→ review/`).  
+   Corrige LabelImg sur un échantillon de `data_mining_*/review/`, puis  
+   `python scripts/reinfer_mining.py --restore --only-manual`  
+   (les non relues partent dans `skipped/`, hors dataset).  
+   `--restore` sans `--only-manual` remonte tout `review/`.
+3. **Correction** — LabelImg sur la session (ou le résidu `review/`), ou `auto_label.py --force` pour régénérer la pré-anno YOLO
+4. **Split** — `python scripts/split_dataset.py` (toutes les sessions ; `--latest` pour la dernière session mining)
+5. **Train** — `python scripts/train.py` → `models/apex_{NNN}/` (fine-tune depuis le dernier `best.pt`, sinon `yolov8n.pt`)
+6. **Export** — `python scripts/export_engine.py`
 
 ### Data mining — raisons
 

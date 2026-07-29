@@ -73,6 +73,13 @@ DATA_MINING_FN_MAX_CONF = 0.65
 DATA_MINING_COOLDOWN_FP = 1
 DATA_MINING_COOLDOWN_FN = 1
 
+# --- Re-inference mining (triage auto / review) ---
+REINFER_LOW_CONF = 0.40      # plancher d'inférence (= DATA_MINING_CONF)
+REINFER_HIGH_CONF = 0.85     # au-dessus : auto-accepte sans review
+REINFER_ALWAYS_REVIEW_REASONS = ("enemy_as_ally_suspect",)
+# Si mtime(.txt) > mtime(.jpg) + marge → label considéré comme relu à la main
+REINFER_MANUAL_EDIT_MARGIN_S = 60.0
+
 # --- Dataset / entraînement ---
 # Dossiers images : core/dataset_paths.py | modèles : core/model_paths.py (models/apex_{NNN}/)
 DATASET_TRAIN_DIR = DATA_DIR / "dataset" / "train"

@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from core.config import DATASET_TRAIN_DIR, DATASET_VAL_DIR
-from core.dataset_paths import list_dataset_source_dirs
+from core.dataset_paths import list_dataset_source_dirs, review_dir, skipped_dir
 
 TRAIN_RATIO = 0.8
 RANDOM_SEED = 42
@@ -95,6 +95,24 @@ def main() -> None:
     for source_dir in source_dirs:
         count = len(list(source_dir.glob("*.jpg"))) if source_dir.exists() else 0
         print(f"  {source_dir.name}/ : {count} image(s)")
+        pending = review_dir(source_dir)
+        if pending.is_dir():
+            pending_count = len(list(pending.glob("*.jpg")))
+            if pending_count:
+                print(
+                    f"  ⚠ {source_dir.name}/review/ : {pending_count} image(s) "
+                    f"en attente (exclues du split). "
+                    f"Corrige puis : python scripts/reinfer_mining.py --restore "
+                    f"--only-manual"
+                )
+        parked = skipped_dir(source_dir)
+        if parked.is_dir():
+            parked_count = len(list(parked.glob("*.jpg")))
+            if parked_count:
+                print(
+                    f"  ℹ {source_dir.name}/skipped/ : {parked_count} image(s) "
+                    f"non relues (exclues du split)"
+                )
     print(f"Total unique : {total_images} image(s)")
 
     if not images:
