@@ -8,6 +8,11 @@ MODELS_DIR = ROOT_DIR / "models"
 # --- Pipeline runtime ---
 FOV_SIZE = 416
 DEBUG = False
+# Overlay in-game (borderless click-through). Apex en borderless recommandé.
+# F8 = show/hide. Indépendant de DEBUG (fenêtre OpenCV à part).
+OVERLAY = False
+OVERLAY_SHOW_CROSSHAIR = False   # croix au centre du FOV
+OVERLAY_SHOW_MAGNETIC_RADIUS = False  # cercle = MAGNETIC_RADIUS
 AIM_ASSIST = True
 # Triggers aim (lock/assist). Si LMB et RMB à True → OU.
 # REQUIRE_BOTH à True → LMB et RMB obligatoires (prioritaire sur le OU).

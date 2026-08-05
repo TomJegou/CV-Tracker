@@ -10,15 +10,23 @@ from core import config
 from core.arduino_port import resolve_arduino_port
 from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
+from core.overlay import run_overlay_loop
 from core.pipeline import AimPipeline, PipelineError
 
 
 def _print_status(pipeline: AimPipeline) -> None:
     print(f"Modèle : {pipeline.detector.model_path}")
 
+    if config.OVERLAY:
+        left, top, right, bottom = pipeline.capture_region
+        print(
+            f"Overlay : activé — FOV {right - left}x{bottom - top} "
+            f"@ ({left},{top}) — F8 show/hide "
+            f"(Apex en borderless recommandé)"
+        )
     if config.DEBUG:
         print("Mode DEBUG — fenêtre OpenCV active, appuyez sur 'q' pour quitter.")
-    else:
+    if not config.DEBUG and not config.OVERLAY:
         print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
 
     if config.AIM_ASSIST:
@@ -120,7 +128,9 @@ def main() -> int:
         _print_status(pipeline)
         pipeline.start()
 
-        if config.DEBUG:
+        if config.OVERLAY:
+            run_overlay_loop(pipeline)
+        elif config.DEBUG:
             _run_debug_ui(pipeline)
         else:
             while pipeline.is_running():
@@ -147,7 +157,7 @@ def main() -> int:
             pipeline.stop()
         else:
             close_arduino_mouse()
-        if config.DEBUG:
+        if config.DEBUG or config.OVERLAY:
             cv2.destroyAllWindows()
 
     return exit_code

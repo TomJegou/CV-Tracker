@@ -79,7 +79,7 @@ class AimPipeline:
         aim_assist_require_rmb: bool = config.AIM_ASSIST_REQUIRE_RMB,
         aim_assist_require_both: bool = config.AIM_ASSIST_REQUIRE_BOTH,
         enable_data_mining: bool = config.ENABLE_DATA_MINING,
-        debug: bool = config.DEBUG,
+        debug: bool = config.DEBUG or config.OVERLAY,
     ):
         self._capture = capture
         self._detector = detector
@@ -144,6 +144,10 @@ class AimPipeline:
     @property
     def detector(self) -> YoloDetector:
         return self._detector
+
+    @property
+    def capture_region(self) -> tuple[int, int, int, int]:
+        return self._capture.region
 
     @property
     def data_mining_dir(self) -> Path | None:

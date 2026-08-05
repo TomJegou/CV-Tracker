@@ -84,6 +84,7 @@ python scripts/arduino_serial_test.py --port COM5  # override
 | Ciblage | `core/targeting.py` | Ennemi le plus proche du réticule |
 | Touches | `core/keys.py` | État LMB/RMB (`GetAsyncKeyState`) |
 | Souris | `core/mouse.py` | Serial → Leonardo (`lock` / `assist` + jitter + fire-pull) |
+| Overlay | `core/overlay.py` | FOV click-through Win32 (si `OVERLAY`) |
 | Data mining | `core/collector.py` | FP/FN suspects → `data_mining_{NNN}/` |
 | Pipeline | `core/pipeline.py` | Threads capture / detect / mouse |
 
@@ -105,6 +106,9 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | Flag | Effet |
 |---|---|
 | `DEBUG` | Fenêtre OpenCV + overlays |
+| `OVERLAY` | Overlay FOV in-game (click-through, F8 show/hide ; borderless Apex) |
+| `OVERLAY_SHOW_CROSSHAIR` | Croix au centre du FOV sur l'overlay |
+| `OVERLAY_SHOW_MAGNETIC_RADIUS` | Cercle `MAGNETIC_RADIUS` sur l'overlay |
 | `AIM_ASSIST` | Ouvre le COM et démarre le thread mouse |
 | `AIM_ASSIST_REQUIRE_LMB` | Aim si clic gauche (OU avec RMB si les deux True) |
 | `AIM_ASSIST_REQUIRE_RMB` | Aim si clic droit |
