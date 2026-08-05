@@ -19,8 +19,8 @@ CAPTURE_IDLE_SLEEP_S = 0.001
 
 # --- Détection ---
 # Seuil aim / targeting (boxes « propres »)
-CONF_THRESHOLD = 0.65
-AUTO_LABEL_CONF = 0.65
+CONF_THRESHOLD = 0.60
+AUTO_LABEL_CONF = 0.60
 # Multiclass (aligné sur apex.yaml) — id 0 = ennemi, id 1 = allie
 CLASS_NAMES = ("ennemi", "allie")
 TARGET_CLASS_ID = 0
@@ -30,18 +30,18 @@ TARGET_CLASS_ID = 0
 AIM_MODE = "assist"
 LOCK_SCALE = 1.0
 AIM_DEBUG_MOVES = False
-MAX_SMOOTHING = 1.0
-MAGNETIC_RADIUS = 100.0
+MAX_SMOOTHING = 1.4
+MAGNETIC_RADIUS = 90.0
 # Point visé dans la box YOLO (0=bord gauche/haut, 0.5=centre, 1=bord droit/bas).
 # Ex. Y=0.30 ≈ haut du corps / tête ; X=0.50 = centre horizontal.
 AIM_POINT_X = 0.50
-AIM_POINT_Y = 0.35
+AIM_POINT_Y = 0.33
 # Pull-down pendant ADS+tir (LMB+RMB), en px/s (positif = vers le bas). 0 = désactivé.
 # Courbe : PEAK pendant PEAK_DURATION, transition sur DECAY, puis plateau DY_PER_S.
 AIM_FIRE_PULL_PEAK_DY_PER_S = 350.0
 AIM_FIRE_PULL_PEAK_DURATION_S = 0.20
 AIM_FIRE_PULL_DECAY_S = 0.15
-AIM_FIRE_PULL_DY_PER_S = 100.0
+AIM_FIRE_PULL_DY_PER_S = 90.0
 
 # --- No-recoil (jitter aim Apex) ---
 # LMB+RMB → aller/retour sec X+Y (amplitude min–max px), via Arduino.
@@ -65,7 +65,7 @@ ARDUINO_OPEN_RETRY_S = 0.4
 # --- Data mining (FP / FN suspects) ---
 ENABLE_DATA_MINING = False
 # Plancher YOLO quand mining ON (une passe ; aim filtre ensuite à CONF_THRESHOLD)
-DATA_MINING_CONF = 0.40
+DATA_MINING_CONF = 0.50
 # Bande FP suspect : [MIN, MAX) — MAX = CONF_THRESHOLD exclut les boxes aim-valides (conf >= seuil)
 DATA_MINING_UNCERTAIN_MIN = 0.40
 DATA_MINING_UNCERTAIN_MAX = 0.65
