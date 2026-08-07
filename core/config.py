@@ -45,7 +45,7 @@ CAPTURE_IDLE_SLEEP_S = 0.0001
 # =============================================================================
 
 # Seuil de confiance pour l'aim / le targeting (boxes « propres »).
-CONF_THRESHOLD = 0.62
+CONF_THRESHOLD = 0.50
 
 # Seuil de confiance pour le pré-labeling (scripts/auto_label.py).
 AUTO_LABEL_CONF = 0.60
@@ -79,24 +79,24 @@ LOCK_SCALE = 1.0
 AIM_DEBUG_MOVES = False
 
 # Intensité max du lissage en mode "assist" (plus haut = plus agressif près du centre).
-MAX_SMOOTHING = 1.30
+MAX_SMOOTHING = 1.00
 
 # Rayon (px) autour du réticule dans lequel l'aim assist attire la souris.
-MAGNETIC_RADIUS = 120.0
+MAGNETIC_RADIUS = 100.0
 
 # Point visé dans la box YOLO (0 = bord gauche/haut, 0.5 = centre, 1 = bord droit/bas).
 AIM_POINT_X = 0.50
-AIM_POINT_Y = 0.33
+AIM_POINT_Y = 0.40
 
 # =============================================================================
 # Compensation spray (jitter + pull-down)
 # =============================================================================
 
 # Active le tremblement sec X/Y pendant LMB+RMB (via Arduino).
-ACTIVE_JITTER = True
+ACTIVE_JITTER = False
 
 # Active le pull-down vertical pendant LMB+RMB (via Arduino).
-ACTIVE_PULL_DOWN = True
+ACTIVE_PULL_DOWN = False
 
 # Pull-down : courbe PEAK → DECAY → plateau (px/s). Ignoré si ACTIVE_PULL_DOWN=False.
 AIM_FIRE_PULL_PEAK_DY_PER_S = 350.0
