@@ -12,8 +12,6 @@ import numpy as np
 from core.config import (
     CLASS_NAMES,
     FOV_SIZE,
-    OVERLAY_SHOW_CROSSHAIR,
-    OVERLAY_SHOW_MAGNETIC_RADIUS,
     TARGET_CLASS_ID,
 )
 from core.detector import DEBUG_CLASS_COLORS
@@ -176,7 +174,7 @@ class FovOverlay:
             1,
         )
         c = self._center
-        if OVERLAY_SHOW_CROSSHAIR:
+        if SETTINGS.OVERLAY_SHOW_CROSSHAIR:
             cv2.drawMarker(
                 canvas,
                 (c, c),
@@ -185,7 +183,7 @@ class FovOverlay:
                 12,
                 1,
             )
-        if OVERLAY_SHOW_MAGNETIC_RADIUS:
+        if SETTINGS.OVERLAY_SHOW_MAGNETIC_RADIUS:
             radius = int(round(float(SETTINGS.MAGNETIC_RADIUS)))
             if radius > 0:
                 cv2.circle(canvas, (c, c), radius, (0, 200, 255), 1)
@@ -253,26 +251,39 @@ class FovOverlay:
             )
 
 
-def run_overlay_loop(
+def run_display_loop(
     pipeline: AimPipeline,
     *,
     max_fps: float = 60.0,
     stop_event: threading.Event | None = None,
 ) -> None:
-    """Boucle principale overlay — quitte sur Ctrl+C, fermeture paramètres, ou crash."""
-    overlay = FovOverlay(pipeline.capture_region)
-    overlay.open()
+    """Boucle principale : ouvre/ferme l'overlay selon SETTINGS.OVERLAY."""
+    overlay: FovOverlay | None = None
     frame_interval = 1.0 / max(1.0, max_fps)
     try:
         while pipeline.is_running() and (
             stop_event is None or not stop_event.is_set()
         ):
-            loop_start = time.perf_counter()
-            packet = pipeline.get_debug_frame(timeout=0.02)
-            overlay.render(packet)
-            elapsed = time.perf_counter() - loop_start
-            sleep_s = frame_interval - elapsed
-            if sleep_s > 0:
-                time.sleep(sleep_s)
+            if SETTINGS.OVERLAY:
+                if overlay is None:
+                    overlay = FovOverlay(pipeline.capture_region)
+                    overlay.open()
+                loop_start = time.perf_counter()
+                packet = pipeline.get_debug_frame(timeout=0.02)
+                overlay.render(packet)
+                elapsed = time.perf_counter() - loop_start
+                sleep_s = frame_interval - elapsed
+                if sleep_s > 0:
+                    time.sleep(sleep_s)
+            else:
+                if overlay is not None:
+                    overlay.close()
+                    overlay = None
+                time.sleep(0.1)
     finally:
-        overlay.close()
+        if overlay is not None:
+            overlay.close()
+
+
+# Alias rétrocompatible
+run_overlay_loop = run_display_loop

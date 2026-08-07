@@ -29,6 +29,24 @@ class SettingSpec:
 
 SETTING_SPECS: tuple[SettingSpec, ...] = (
     SettingSpec(
+        "OVERLAY",
+        "bool",
+        "Overlay FOV in-game",
+        "Overlay",
+    ),
+    SettingSpec(
+        "OVERLAY_SHOW_CROSSHAIR",
+        "bool",
+        "Overlay : croix centrale",
+        "Overlay",
+    ),
+    SettingSpec(
+        "OVERLAY_SHOW_MAGNETIC_RADIUS",
+        "bool",
+        "Overlay : cercle magnetique",
+        "Overlay",
+    ),
+    SettingSpec(
         "CONF_THRESHOLD",
         "float",
         "Seuil de confiance (aim)",

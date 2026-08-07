@@ -1,6 +1,5 @@
 import argparse
 import sys
-import time
 from pathlib import Path
 
 import cv2
@@ -10,7 +9,7 @@ from core import config
 from core.arduino_port import resolve_arduino_port
 from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
-from core.overlay import run_overlay_loop
+from core.overlay import run_display_loop
 from core.pipeline import AimPipeline, PipelineError
 from core.settings import SETTINGS
 from core.settings_window import start_settings_window
@@ -19,22 +18,28 @@ from core.settings_window import start_settings_window
 def _print_status(pipeline: AimPipeline) -> None:
     print(f"Modèle : {pipeline.detector.model_path}")
 
-    if config.OVERLAY:
-        left, top, right, bottom = pipeline.capture_region
+    left, top, right, bottom = pipeline.capture_region
+    if SETTINGS.OVERLAY:
         print(
             f"Overlay : activé — FOV {right - left}x{bottom - top} "
             f"@ ({left},{top}) — F8 show/hide "
             f"(Apex en borderless recommandé)"
         )
-    if config.DEBUG:
-        print("Mode DEBUG — fenêtre OpenCV active, appuyez sur 'q' pour quitter.")
-    if not config.DEBUG and not config.OVERLAY:
+    else:
         print(
-            "Mode production — pas de rendu visuel, "
-            "Ctrl+C / fermer paramètres pour quitter."
+            f"Overlay : désactivé (activable à chaud) — "
+            f"FOV {right - left}x{bottom - top} @ ({left},{top})"
         )
 
-    print("Paramètres : fenêtre runtime (autosave → settings.json)")
+    if config.DEBUG:
+        print("Mode DEBUG — fenêtre OpenCV active, appuyez sur 'q' pour quitter.")
+    else:
+        print(
+            "Mode production — Ctrl+C / fermer paramètres pour quitter "
+            "(overlay ON/OFF via fenêtre paramètres)."
+        )
+
+    print("Paramètres : fenêtre runtime (autosave -> settings.json)")
 
     if SETTINGS.AIM_ASSIST:
         trigger = describe_aim_trigger()
@@ -62,7 +67,7 @@ def _print_status(pipeline: AimPipeline) -> None:
     configured = config.ARDUINO_PORT
     resolved = resolve_arduino_port(configured)
     if configured is None or str(configured).strip().lower() in ("", "auto"):
-        print(f"Arduino : auto → {resolved}")
+        print(f"Arduino : auto -> {resolved}")
     else:
         print(f"Arduino : {resolved}")
 
@@ -75,9 +80,9 @@ def _print_status(pipeline: AimPipeline) -> None:
     if SETTINGS.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
         infer = min(SETTINGS.CONF_THRESHOLD, config.DATA_MINING_CONF)
         print(
-            f"Data mining : activé → {pipeline.data_mining_dir}/ "
-            f"(YOLO conf≥{infer:.2f}, "
-            f"aim conf≥{SETTINGS.CONF_THRESHOLD:.2f}, "
+            f"Data mining : activé -> {pipeline.data_mining_dir}/ "
+            f"(YOLO conf>={infer:.2f}, "
+            f"aim conf>={SETTINGS.CONF_THRESHOLD:.2f}, "
             f"fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f},{config.DATA_MINING_UNCERTAIN_MAX:.2f}), "
             f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + LMB+RMB)"
         )
@@ -113,11 +118,6 @@ def _run_debug_ui(pipeline: AimPipeline, settings_closed) -> None:
             break
 
 
-def _run_idle(pipeline: AimPipeline, settings_closed) -> None:
-    while pipeline.is_running() and not settings_closed.is_set():
-        time.sleep(0.1)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Pipeline CV-Tracker.")
     parser.add_argument(
@@ -140,12 +140,10 @@ def main() -> int:
         pipeline.start()
         settings_ui = start_settings_window()
 
-        if config.OVERLAY:
-            run_overlay_loop(pipeline, stop_event=settings_ui.closed)
-        elif config.DEBUG:
+        if config.DEBUG:
             _run_debug_ui(pipeline, settings_ui.closed)
         else:
-            _run_idle(pipeline, settings_ui.closed)
+            run_display_loop(pipeline, stop_event=settings_ui.closed)
 
         pipeline.raise_if_failed()
     except PipelineError as exc:
@@ -169,8 +167,7 @@ def main() -> int:
         else:
             close_arduino_mouse()
         SETTINGS.shutdown()
-        if config.DEBUG or config.OVERLAY:
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
     return exit_code
 

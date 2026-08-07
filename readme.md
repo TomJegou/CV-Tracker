@@ -96,7 +96,7 @@ Thread capture  → frame_queue (size=1)
 Thread detect   → YOLO + targeting + (mining) + debug_queue
 Thread mouse    → MouseController → Arduino <dx,dy>   [COM toujours ouvert]
 Thread settings → fenêtre tkinter (autosave settings.json)
-Thread main     → fenêtre OpenCV / overlay            [si DEBUG / OVERLAY]
+Thread main     → overlay dynamique / fenêtre OpenCV  [si DEBUG]
 ```
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
@@ -109,7 +109,7 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 
 ### Priorite
 
-1. `settings.json` (racine projet) — si présent et valide, surcharge les 12 paramètres runtime
+1. `settings.json` (racine projet) — si présent et valide, surcharge les paramètres runtime
 2. `core/config.py` — source de vérité / fallback (et tous les autres flags non exposés dans la fenêtre)
 
 La fenêtre de paramètres s’ouvre au lancement de `main.py`. Toute modification est appliquée **immédiatement** et sauvegardée automatiquement dans `settings.json` (debounce ~0.4 s). Bouton « Réinitialiser (config.py) » pour revenir aux defaults. Fermer la fenêtre arrête le programme proprement.
@@ -118,6 +118,9 @@ La fenêtre de paramètres s’ouvre au lancement de `main.py`. Toute modificati
 
 | Flag | Effet |
 |---|---|
+| `OVERLAY` | Overlay FOV in-game (click-through, F8 show/hide ; borderless Apex) |
+| `OVERLAY_SHOW_CROSSHAIR` | Croix au centre du FOV sur l'overlay |
+| `OVERLAY_SHOW_MAGNETIC_RADIUS` | Cercle `MAGNETIC_RADIUS` sur l'overlay |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `AIM_ASSIST` | Active l’injection aim (COM déjà ouvert) |
 | `AIM_ASSIST_REQUIRE_LMB` | Aim si clic gauche (OU avec RMB si les deux True) |
@@ -134,10 +137,7 @@ La fenêtre de paramètres s’ouvre au lancement de `main.py`. Toute modificati
 
 | Flag | Effet |
 |---|---|
-| `DEBUG` | Fenêtre OpenCV + overlays |
-| `OVERLAY` | Overlay FOV in-game (click-through, F8 show/hide ; borderless Apex) |
-| `OVERLAY_SHOW_CROSSHAIR` | Croix au centre du FOV sur l'overlay |
-| `OVERLAY_SHOW_MAGNETIC_RADIUS` | Cercle `MAGNETIC_RADIUS` sur l'overlay |
+| `DEBUG` | Fenêtre OpenCV (prioritaire sur la boucle overlay) |
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
 | `NO_RECOIL_TICK_S` | Période thread mouse fusionné (jitter / pull) |

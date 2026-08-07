@@ -74,8 +74,6 @@ class AimPipeline:
         collector: DataCollector | None = None,
         recoil: RecoilCompensator | None = None,
         fire_pull: AimFirePull | None = None,
-        *,
-        debug: bool = config.DEBUG or config.OVERLAY,
     ):
         self._capture = capture
         self._detector = detector
@@ -84,7 +82,6 @@ class AimPipeline:
         self._collector = collector
         self._recoil = recoil
         self._fire_pull = fire_pull
-        self._debug = debug
         self._capture_idle_sleep_s = config.CAPTURE_IDLE_SLEEP_S
         # Toujours tick fusionné : jitter / pull / aim peuvent s'activer à chaud.
         self._mouse_tick_s = config.NO_RECOIL_TICK_S
@@ -255,7 +252,7 @@ class AimPipeline:
                         clicking=is_ads_and_firing(),
                     )
 
-            if self._debug:
+            if config.DEBUG or SETTINGS.OVERLAY:
                 put_latest(
                     self._debug_queue,
                     DebugFrame(
