@@ -144,7 +144,7 @@ ENABLE_DATA_MINING = False
 DATA_MINING_CONF = 0.50
 
 # Bande FP suspect : conf ∈ [MIN, MAX). MAX devrait ≈ CONF_THRESHOLD.
-DATA_MINING_UNCERTAIN_MIN = 0.40
+DATA_MINING_UNCERTAIN_MIN = 0.50
 DATA_MINING_UNCERTAIN_MAX = 0.65
 
 # FN suspect : LMB+RMB et meilleure conf ennemi < ce seuil.
