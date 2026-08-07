@@ -124,14 +124,16 @@ class AimPipeline:
         capture = ScreenCapture()
         detector = YoloDetector(model_path=model_path)
         targeting = TargetingSystem()
-        # fire_pull implique AIM_ASSIST ; NO_RECOIL seul ouvre aussi le COM (jitter).
-        needs_mouse = config.AIM_ASSIST or config.NO_RECOIL
+        # Jitter / pull ouvrent le COM même sans AIM_ASSIST.
+        needs_mouse = (
+            config.AIM_ASSIST or config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN
+        )
         mouse = MouseController() if needs_mouse else None
         collector = DataCollector() if config.ENABLE_DATA_MINING else None
-        recoil = RecoilCompensator() if config.NO_RECOIL else None
+        recoil = RecoilCompensator() if config.ACTIVE_JITTER else None
         fire_pull = (
             AimFirePull()
-            if config.AIM_ASSIST
+            if config.ACTIVE_PULL_DOWN
             and max(
                 config.AIM_FIRE_PULL_DY_PER_S,
                 config.AIM_FIRE_PULL_PEAK_DY_PER_S,

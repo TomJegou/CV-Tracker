@@ -28,24 +28,24 @@ OVERLAY = False
 OVERLAY_SHOW_CROSSHAIR = False
 
 # Affiche le cercle de rayon MAGNETIC_RADIUS sur l'overlay.
-OVERLAY_SHOW_MAGNETIC_RADIUS = False
+OVERLAY_SHOW_MAGNETIC_RADIUS = True
 
 # =============================================================================
 # Capture
 # =============================================================================
 
 # Taille du crop carré centré à l'écran (px). Doit matcher imgsz d'entraînement.
-FOV_SIZE = 416
+FOV_SIZE = 32*13
 
 # Pause (s) si dxcam.grab() renvoie None, pour éviter un busy-loop CPU. 0 = off.
-CAPTURE_IDLE_SLEEP_S = 0.001
+CAPTURE_IDLE_SLEEP_S = 0.0001
 
 # =============================================================================
 # Détection YOLO
 # =============================================================================
 
 # Seuil de confiance pour l'aim / le targeting (boxes « propres »).
-CONF_THRESHOLD = 0.60
+CONF_THRESHOLD = 0.62
 
 # Seuil de confiance pour le pré-labeling (scripts/auto_label.py).
 AUTO_LABEL_CONF = 0.60
@@ -79,35 +79,37 @@ LOCK_SCALE = 1.0
 AIM_DEBUG_MOVES = False
 
 # Intensité max du lissage en mode "assist" (plus haut = plus agressif près du centre).
-MAX_SMOOTHING = 1.4
+MAX_SMOOTHING = 1.30
 
 # Rayon (px) autour du réticule dans lequel l'aim assist attire la souris.
-MAGNETIC_RADIUS = 90.0
+MAGNETIC_RADIUS = 120.0
 
 # Point visé dans la box YOLO (0 = bord gauche/haut, 0.5 = centre, 1 = bord droit/bas).
 AIM_POINT_X = 0.50
 AIM_POINT_Y = 0.33
 
-# Pull-down vertical pendant ADS+tir (LMB+RMB), en px/s. 0 = désactivé.
-# Courbe : PEAK pendant PEAK_DURATION, transition sur DECAY, puis plateau DY_PER_S.
+# =============================================================================
+# Compensation spray (jitter + pull-down)
+# =============================================================================
+
+# Active le tremblement sec X/Y pendant LMB+RMB (via Arduino).
+ACTIVE_JITTER = True
+
+# Active le pull-down vertical pendant LMB+RMB (via Arduino).
+ACTIVE_PULL_DOWN = True
+
+# Pull-down : courbe PEAK → DECAY → plateau (px/s). Ignoré si ACTIVE_PULL_DOWN=False.
 AIM_FIRE_PULL_PEAK_DY_PER_S = 350.0
 AIM_FIRE_PULL_PEAK_DURATION_S = 0.20
 AIM_FIRE_PULL_DECAY_S = 0.15
 AIM_FIRE_PULL_DY_PER_S = 90.0
 
-# =============================================================================
-# No-recoil (jitter aim Apex)
-# =============================================================================
-
-# Tremblement sec X/Y pendant LMB+RMB, injecté via Arduino (cumulable avec l'aim).
-NO_RECOIL = True
-
 # Amplitude min/max du jitter (px) sur les axes X et Y.
 NO_RECOIL_JITTER_MIN = 5
 NO_RECOIL_JITTER_MAX = 5
 
-# Période du thread mouse fusionné (jitter et/ou fire-pull), en secondes.
-NO_RECOIL_TICK_S = 0.001  # 1000 Hz
+# Période du thread mouse fusionné (jitter et/ou pull), en secondes.
+NO_RECOIL_TICK_S = 0.005
 
 # Logs périodiques [mouse] (LMB/RMB, aim, jitter, pull).
 NO_RECOIL_DEBUG = False

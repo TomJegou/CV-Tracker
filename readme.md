@@ -36,7 +36,7 @@ Adapte l’index CUDA (`cu118` / `cu124` / `cu130`) à ton driver. TensorRT pour
 
 ---
 
-## 3. Matériel aim (requis si `AIM_ASSIST`, `NO_RECOIL` ou fire-pull)
+## 3. Matériel aim (requis si `AIM_ASSIST`, `ACTIVE_JITTER` ou `ACTIVE_PULL_DOWN`)
 
 Deux setups possibles (même protocole Serial `<dx,dy>\n` @ 115200, même Python).
 
@@ -91,13 +91,13 @@ python scripts/arduino_serial_test.py --port COM5  # override
 ```
 Thread capture  → frame_queue (size=1)
 Thread detect   → YOLO + targeting + (mining) + debug_queue
-Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST / NO_RECOIL / fire-pull]
+Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST / ACTIVE_JITTER / ACTIVE_PULL_DOWN]
 Thread main     → fenêtre OpenCV                      [si DEBUG]
 ```
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
 Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shield ; avec `serial_aim`, le Leonardo n’envoie que l’aim (2ᵉ souris HID).  
-`NO_RECOIL` active le **jitter aim** Apex : tremblement sec aller/retour sur X et Y dès LMB+RMB, via Arduino (peut se cumuler avec l’aim).
+`ACTIVE_JITTER` / `ACTIVE_PULL_DOWN` activent indépendamment le tremblement X/Y et le pull vertical pendant LMB+RMB (via Arduino ; cumulables avec l’aim).
 
 ---
 
@@ -116,15 +116,15 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
 | `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
 | `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
-| `AIM_FIRE_PULL_PEAK_DY_PER_S` | Pull initial fort (début de spray, px/s) |
+| `ACTIVE_JITTER` | Tremblement sec X/Y sur LMB+RMB (via Arduino) |
+| `ACTIVE_PULL_DOWN` | Pull-down vertical sur LMB+RMB (via Arduino) |
+| `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
+| `NO_RECOIL_TICK_S` | Période thread mouse fusionné (jitter / pull) |
+| `NO_RECOIL_DEBUG` | Logs périodiques LMB/RMB / deltas mouse |
+| `AIM_FIRE_PULL_PEAK_DY_PER_S` | Pull initial fort (début de spray, px/s ; si `ACTIVE_PULL_DOWN`) |
 | `AIM_FIRE_PULL_PEAK_DURATION_S` | Durée du peak avant transition |
 | `AIM_FIRE_PULL_DECAY_S` | Transition linéaire peak → plateau |
-| `AIM_FIRE_PULL_DY_PER_S` | Pull plateau (fin de spray ; 0 = off si peak aussi à 0) |
-| `AIM_DEBUG_MOVES` | Log stdout des SNAP |
-| `NO_RECOIL` | Jitter aim X/Y sur LMB+RMB (via Arduino) |
-| `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
-| `NO_RECOIL_TICK_S` | Période thread mouse fusionné (jitter / fire-pull) |
-| `NO_RECOIL_DEBUG` | Logs périodiques LMB/RMB / deltas mouse |
+| `AIM_FIRE_PULL_DY_PER_S` | Pull plateau |
 | `ENABLE_DATA_MINING` | Collecte async FP/FN |
 | `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |

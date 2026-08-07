@@ -32,24 +32,26 @@ def _print_status(pipeline: AimPipeline) -> None:
     if config.AIM_ASSIST:
         trigger = describe_aim_trigger()
         print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
-        if max(config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S) > 0:
-            print(
-                f"Aim fire-pull : {config.AIM_FIRE_PULL_PEAK_DY_PER_S:.0f} -> "
-                f"{config.AIM_FIRE_PULL_DY_PER_S:.0f} px/s "
-                f"(peak {config.AIM_FIRE_PULL_PEAK_DURATION_S * 1000:.0f} ms, "
-                f"decay {config.AIM_FIRE_PULL_DECAY_S * 1000:.0f} ms, LMB+RMB)"
-            )
     else:
         print("Aim : désactivé (détection seule)")
 
-    if config.NO_RECOIL:
+    if config.ACTIVE_JITTER:
         print(
-            f"No-recoil : activé — jitter X/Y "
+            f"Jitter : activé — "
             f"{config.NO_RECOIL_JITTER_MIN}–{config.NO_RECOIL_JITTER_MAX} px "
             f"(LMB+RMB, via Arduino)"
         )
+    if config.ACTIVE_PULL_DOWN and max(
+        config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S
+    ) > 0:
+        print(
+            f"Pull-down : activé — {config.AIM_FIRE_PULL_PEAK_DY_PER_S:.0f} -> "
+            f"{config.AIM_FIRE_PULL_DY_PER_S:.0f} px/s "
+            f"(peak {config.AIM_FIRE_PULL_PEAK_DURATION_S * 1000:.0f} ms, "
+            f"decay {config.AIM_FIRE_PULL_DECAY_S * 1000:.0f} ms, LMB+RMB)"
+        )
 
-    if config.AIM_ASSIST or config.NO_RECOIL:
+    if config.AIM_ASSIST or config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN:
         configured = config.ARDUINO_PORT
         resolved = resolve_arduino_port(configured)
         if configured is None or str(configured).strip().lower() in ("", "auto"):
@@ -58,8 +60,7 @@ def _print_status(pipeline: AimPipeline) -> None:
             print(f"Arduino : {resolved}")
 
     if config.NO_RECOIL_DEBUG and (
-        config.NO_RECOIL
-        or max(config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S) > 0
+        config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN
     ):
         print(
             "Mouse DEBUG : logs [mouse] toutes les 0.5 s "
