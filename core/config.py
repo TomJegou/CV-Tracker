@@ -28,7 +28,7 @@ OVERLAY = False
 OVERLAY_SHOW_CROSSHAIR = False
 
 # Affiche le cercle de rayon MAGNETIC_RADIUS sur l'overlay.
-OVERLAY_SHOW_MAGNETIC_RADIUS = True
+OVERLAY_SHOW_MAGNETIC_RADIUS = False
 
 # =============================================================================
 # Capture
