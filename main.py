@@ -12,6 +12,8 @@ from core.keys import describe_aim_trigger
 from core.mouse import close_arduino_mouse
 from core.overlay import run_overlay_loop
 from core.pipeline import AimPipeline, PipelineError
+from core.settings import SETTINGS
+from core.settings_window import start_settings_window
 
 
 def _print_status(pipeline: AimPipeline) -> None:
@@ -27,21 +29,26 @@ def _print_status(pipeline: AimPipeline) -> None:
     if config.DEBUG:
         print("Mode DEBUG — fenêtre OpenCV active, appuyez sur 'q' pour quitter.")
     if not config.DEBUG and not config.OVERLAY:
-        print("Mode production — pas de rendu visuel, Ctrl+C pour quitter.")
+        print(
+            "Mode production — pas de rendu visuel, "
+            "Ctrl+C / fermer paramètres pour quitter."
+        )
 
-    if config.AIM_ASSIST:
+    print("Paramètres : fenêtre runtime (autosave → settings.json)")
+
+    if SETTINGS.AIM_ASSIST:
         trigger = describe_aim_trigger()
         print(f"Aim : activé — mode={config.AIM_MODE} ({trigger})")
     else:
         print("Aim : désactivé (détection seule)")
 
-    if config.ACTIVE_JITTER:
+    if SETTINGS.ACTIVE_JITTER:
         print(
             f"Jitter : activé — "
             f"{config.NO_RECOIL_JITTER_MIN}–{config.NO_RECOIL_JITTER_MAX} px "
             f"(LMB+RMB, via Arduino)"
         )
-    if config.ACTIVE_PULL_DOWN and max(
+    if SETTINGS.ACTIVE_PULL_DOWN and max(
         config.AIM_FIRE_PULL_DY_PER_S, config.AIM_FIRE_PULL_PEAK_DY_PER_S
     ) > 0:
         print(
@@ -51,28 +58,26 @@ def _print_status(pipeline: AimPipeline) -> None:
             f"decay {config.AIM_FIRE_PULL_DECAY_S * 1000:.0f} ms, LMB+RMB)"
         )
 
-    if config.AIM_ASSIST or config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN:
-        configured = config.ARDUINO_PORT
-        resolved = resolve_arduino_port(configured)
-        if configured is None or str(configured).strip().lower() in ("", "auto"):
-            print(f"Arduino : auto → {resolved}")
-        else:
-            print(f"Arduino : {resolved}")
+    # COM toujours ouvert pour activation à chaud des flags mouse.
+    configured = config.ARDUINO_PORT
+    resolved = resolve_arduino_port(configured)
+    if configured is None or str(configured).strip().lower() in ("", "auto"):
+        print(f"Arduino : auto → {resolved}")
+    else:
+        print(f"Arduino : {resolved}")
 
-    if config.NO_RECOIL_DEBUG and (
-        config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN
-    ):
+    if config.NO_RECOIL_DEBUG:
         print(
             "Mouse DEBUG : logs [mouse] toutes les 0.5 s "
             "(LMB/RMB, aim, jitter, pull)"
         )
 
-    if config.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
-        infer = min(config.CONF_THRESHOLD, config.DATA_MINING_CONF)
+    if SETTINGS.ENABLE_DATA_MINING and pipeline.data_mining_dir is not None:
+        infer = min(SETTINGS.CONF_THRESHOLD, config.DATA_MINING_CONF)
         print(
             f"Data mining : activé → {pipeline.data_mining_dir}/ "
             f"(YOLO conf≥{infer:.2f}, "
-            f"aim conf≥{config.CONF_THRESHOLD:.2f}, "
+            f"aim conf≥{SETTINGS.CONF_THRESHOLD:.2f}, "
             f"fp [{config.DATA_MINING_UNCERTAIN_MIN:.2f},{config.DATA_MINING_UNCERTAIN_MAX:.2f}), "
             f"fn conf<{config.DATA_MINING_FN_MAX_CONF:.2f} + LMB+RMB)"
         )
@@ -84,13 +89,13 @@ def _print_status(pipeline: AimPipeline) -> None:
     )
 
 
-def _run_debug_ui(pipeline: AimPipeline) -> None:
+def _run_debug_ui(pipeline: AimPipeline, settings_closed) -> None:
     window_name = "CV-Tracker"
     fov_center = config.FOV_SIZE // 2
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window_name, 1000, 1000)
 
-    while pipeline.is_running():
+    while pipeline.is_running() and not settings_closed.is_set():
         packet = pipeline.get_debug_frame(timeout=0.05)
         if packet is not None:
             debug_frame = pipeline.detector.draw_debug(packet.frame, packet.detections)
@@ -106,6 +111,11 @@ def _run_debug_ui(pipeline: AimPipeline) -> None:
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
+
+
+def _run_idle(pipeline: AimPipeline, settings_closed) -> None:
+    while pipeline.is_running() and not settings_closed.is_set():
+        time.sleep(0.1)
 
 
 def main() -> int:
@@ -128,14 +138,14 @@ def main() -> int:
         pipeline = AimPipeline.create(model_path=args.model)
         _print_status(pipeline)
         pipeline.start()
+        settings_ui = start_settings_window()
 
         if config.OVERLAY:
-            run_overlay_loop(pipeline)
+            run_overlay_loop(pipeline, stop_event=settings_ui.closed)
         elif config.DEBUG:
-            _run_debug_ui(pipeline)
+            _run_debug_ui(pipeline, settings_ui.closed)
         else:
-            while pipeline.is_running():
-                time.sleep(0.1)
+            _run_idle(pipeline, settings_ui.closed)
 
         pipeline.raise_if_failed()
     except PipelineError as exc:
@@ -158,6 +168,7 @@ def main() -> int:
             pipeline.stop()
         else:
             close_arduino_mouse()
+        SETTINGS.shutdown()
         if config.DEBUG or config.OVERLAY:
             cv2.destroyAllWindows()
 

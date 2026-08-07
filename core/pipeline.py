@@ -19,6 +19,7 @@ from core.keys import (
     is_left_mouse_pressed,
     is_right_mouse_pressed,
 )
+from core.settings import SETTINGS
 from core.targeting import TargetingSystem
 
 MOUSE_QUEUE_TIMEOUT_S = 0.05
@@ -69,16 +70,11 @@ class AimPipeline:
         capture: ScreenCapture,
         detector: YoloDetector,
         targeting: TargetingSystem,
-        mouse: MouseController | None = None,
+        mouse: MouseController,
         collector: DataCollector | None = None,
         recoil: RecoilCompensator | None = None,
         fire_pull: AimFirePull | None = None,
         *,
-        aim_assist: bool = config.AIM_ASSIST,
-        aim_assist_require_lmb: bool = config.AIM_ASSIST_REQUIRE_LMB,
-        aim_assist_require_rmb: bool = config.AIM_ASSIST_REQUIRE_RMB,
-        aim_assist_require_both: bool = config.AIM_ASSIST_REQUIRE_BOTH,
-        enable_data_mining: bool = config.ENABLE_DATA_MINING,
         debug: bool = config.DEBUG or config.OVERLAY,
     ):
         self._capture = capture
@@ -88,25 +84,11 @@ class AimPipeline:
         self._collector = collector
         self._recoil = recoil
         self._fire_pull = fire_pull
-        self._aim_assist = aim_assist
-        self._aim_assist_require_lmb = aim_assist_require_lmb
-        self._aim_assist_require_rmb = aim_assist_require_rmb
-        self._aim_assist_require_both = aim_assist_require_both
-        self._enable_data_mining = enable_data_mining
         self._debug = debug
-        self._aim_conf = config.CONF_THRESHOLD
-        # Une seule passe YOLO : plancher mining si actif, sinon seuil aim
-        self._infer_conf = (
-            min(config.CONF_THRESHOLD, config.DATA_MINING_CONF)
-            if enable_data_mining
-            else config.CONF_THRESHOLD
-        )
         self._capture_idle_sleep_s = config.CAPTURE_IDLE_SLEEP_S
-        fused = recoil is not None or fire_pull is not None
-        self._mouse_tick_s = (
-            config.NO_RECOIL_TICK_S if fused else MOUSE_QUEUE_TIMEOUT_S
-        )
-        self._no_recoil_debug = bool(fused and config.NO_RECOIL_DEBUG)
+        # Toujours tick fusionné : jitter / pull / aim peuvent s'activer à chaud.
+        self._mouse_tick_s = config.NO_RECOIL_TICK_S
+        self._no_recoil_debug = bool(config.NO_RECOIL_DEBUG)
 
         self._frame_queue: queue.Queue[np.ndarray] = queue.Queue(maxsize=1)
         self._target_queue: queue.Queue[dict | None] = queue.Queue(maxsize=1)
@@ -118,29 +100,19 @@ class AimPipeline:
         self._stopped = False
         self._failure: tuple[str, Exception] | None = None
         self._failure_lock = threading.Lock()
+        self._collector_lock = threading.Lock()
 
     @classmethod
     def create(cls, model_path: Path | str | None = None) -> "AimPipeline":
         capture = ScreenCapture()
         detector = YoloDetector(model_path=model_path)
         targeting = TargetingSystem()
-        # Jitter / pull ouvrent le COM même sans AIM_ASSIST.
-        needs_mouse = (
-            config.AIM_ASSIST or config.ACTIVE_JITTER or config.ACTIVE_PULL_DOWN
-        )
-        mouse = MouseController() if needs_mouse else None
-        collector = DataCollector() if config.ENABLE_DATA_MINING else None
-        recoil = RecoilCompensator() if config.ACTIVE_JITTER else None
-        fire_pull = (
-            AimFirePull()
-            if config.ACTIVE_PULL_DOWN
-            and max(
-                config.AIM_FIRE_PULL_DY_PER_S,
-                config.AIM_FIRE_PULL_PEAK_DY_PER_S,
-            )
-            > 0
-            else None
-        )
+        # COM + compensateurs toujours prêts pour activation à chaud.
+        mouse = MouseController()
+        recoil = RecoilCompensator()
+        fire_pull = AimFirePull()
+        # DataCollector paresseux : cree a la premiere activation mining.
+        collector = DataCollector() if SETTINGS.ENABLE_DATA_MINING else None
         return cls(capture, detector, targeting, mouse, collector, recoil, fire_pull)
 
     @property
@@ -175,23 +147,13 @@ class AimPipeline:
         if self._started:
             return
 
-        needs_mouse = (
-            (
-                self._aim_assist
-                or self._recoil is not None
-                or self._fire_pull is not None
-            )
-            and self._mouse is not None
-        )
-        if needs_mouse:
-            self._mouse.open()
+        self._mouse.open()
 
         workers = [
             ("capture", self._capture_loop),
             ("detect", self._detect_loop),
+            ("mouse", self._mouse_loop),
         ]
-        if needs_mouse:
-            workers.append(("mouse", self._mouse_loop))
 
         self._stop.clear()
         for name, loop in workers:
@@ -216,8 +178,7 @@ class AimPipeline:
         self._capture.release()
         if self._collector is not None:
             self._collector.stop()
-        if self._mouse is not None:
-            self._mouse.close()
+        self._mouse.close()
 
     def get_debug_frame(self, timeout: float = 0.05) -> DebugFrame | None:
         try:
@@ -240,6 +201,18 @@ class AimPipeline:
             traceback.print_exc()
             self._stop.set()
 
+    def _ensure_collector(self) -> DataCollector | None:
+        """Cree le DataCollector a la premiere activation mining (thread-safe)."""
+        if not SETTINGS.ENABLE_DATA_MINING:
+            return None
+        if self._collector is not None:
+            return self._collector
+        with self._collector_lock:
+            if self._collector is None:
+                self._collector = DataCollector()
+                print(f"[pipeline] Data mining active -> {self._collector.save_dir}/")
+            return self._collector
+
     def _capture_loop(self) -> None:
         idle_sleep = self._capture_idle_sleep_s
         while not self._stop.is_set():
@@ -257,22 +230,30 @@ class AimPipeline:
             except queue.Empty:
                 continue
 
-            detections = self._detector.detect(frame, conf=self._infer_conf)
+            aim_conf = SETTINGS.CONF_THRESHOLD
+            mining_on = SETTINGS.ENABLE_DATA_MINING
+            infer_conf = (
+                min(aim_conf, config.DATA_MINING_CONF) if mining_on else aim_conf
+            )
+
+            detections = self._detector.detect(frame, conf=infer_conf)
             aim_detections = (
-                self._detector.filter_by_conf(detections, self._aim_conf)
-                if self._infer_conf < self._aim_conf
+                self._detector.filter_by_conf(detections, aim_conf)
+                if infer_conf < aim_conf
                 else detections
             )
             best_target = self._targeting.get_best_target(aim_detections)
-            if self._aim_assist and self._mouse is not None:
+            if SETTINGS.AIM_ASSIST:
                 put_latest(self._target_queue, best_target)
 
-            if self._enable_data_mining and self._collector is not None:
-                self._collector.consider(
-                    frame,
-                    detections,
-                    clicking=is_ads_and_firing(),
-                )
+            if mining_on:
+                collector = self._ensure_collector()
+                if collector is not None:
+                    collector.consider(
+                        frame,
+                        detections,
+                        clicking=is_ads_and_firing(),
+                    )
 
             if self._debug:
                 put_latest(
@@ -285,44 +266,13 @@ class AimPipeline:
                 )
 
     def _mouse_loop(self) -> None:
-        assert self._mouse is not None
-
-        if self._recoil is None and self._fire_pull is None:
-            self._mouse_loop_aim_only()
-        else:
-            self._mouse_loop_fused()
-
-    def _mouse_loop_aim_only(self) -> None:
-        """Aim seul : se réveille sur la queue (latence mini)."""
-        assert self._mouse is not None
-        tick = self._mouse_tick_s
-
-        while not self._stop.is_set():
-            try:
-                target = self._target_queue.get(timeout=tick)
-            except queue.Empty:
-                continue
-
-            if target is None or self._stop.is_set():
-                continue
-
-            if not is_aim_trigger_active(
-                require_lmb=self._aim_assist_require_lmb,
-                require_rmb=self._aim_assist_require_rmb,
-                require_both=self._aim_assist_require_both,
-            ):
-                continue
-
-            self._mouse.apply(target["dx"], target["dy"], target["distance"])
-
-    def _mouse_loop_fused(self) -> None:
-        """Aim + jitter no-recoil + fire-pull : tick fixe, un write Serial."""
-        assert self._mouse is not None
-
+        """Aim + jitter + fire-pull : tick fixe, un write Serial, flags live."""
         tick = self._mouse_tick_s
         debug = self._no_recoil_debug
         last_debug = 0.0
         recoil_sent = 0
+        jitter_was_on = False
+        pull_was_on = False
 
         while not self._stop.is_set():
             loop_start = time.perf_counter()
@@ -333,10 +283,14 @@ class AimPipeline:
 
             now = time.perf_counter()
             aim_x = aim_y = 0
-            if target is not None and is_aim_trigger_active(
-                require_lmb=self._aim_assist_require_lmb,
-                require_rmb=self._aim_assist_require_rmb,
-                require_both=self._aim_assist_require_both,
+            if (
+                SETTINGS.AIM_ASSIST
+                and target is not None
+                and is_aim_trigger_active(
+                    require_lmb=SETTINGS.AIM_ASSIST_REQUIRE_LMB,
+                    require_rmb=SETTINGS.AIM_ASSIST_REQUIRE_RMB,
+                    require_both=SETTINGS.AIM_ASSIST_REQUIRE_BOTH,
+                )
             ):
                 aim_x, aim_y = self._mouse.compute_move(
                     target["dx"], target["dy"], target["distance"]
@@ -345,10 +299,20 @@ class AimPipeline:
             recoil_x = recoil_y = 0
             pull_y = 0
             ads_firing = is_ads_and_firing()
+            jitter_on = SETTINGS.ACTIVE_JITTER
+            pull_on = SETTINGS.ACTIVE_PULL_DOWN
+
+            if jitter_was_on and not jitter_on and self._recoil is not None:
+                self._recoil.reset()
+            if pull_was_on and not pull_on and self._fire_pull is not None:
+                self._fire_pull.reset()
+            jitter_was_on = jitter_on
+            pull_was_on = pull_on
+
             if ads_firing:
-                if self._recoil is not None:
+                if jitter_on and self._recoil is not None:
                     recoil_x, recoil_y = self._recoil.tick(now)
-                if self._fire_pull is not None:
+                if pull_on and self._fire_pull is not None:
                     pull_y = self._fire_pull.tick(now)
             else:
                 if self._recoil is not None:
@@ -366,7 +330,9 @@ class AimPipeline:
             if debug and now - last_debug >= 0.5:
                 last_debug = now
                 pull_rate = (
-                    self._fire_pull.current_rate if self._fire_pull is not None else 0.0
+                    self._fire_pull.current_rate
+                    if self._fire_pull is not None and pull_on
+                    else 0.0
                 )
                 print(
                     f"[mouse] LMB={int(is_left_mouse_pressed())} "

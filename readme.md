@@ -36,9 +36,10 @@ Adapte l’index CUDA (`cu118` / `cu124` / `cu130`) à ton driver. TensorRT pour
 
 ---
 
-## 3. Matériel aim (requis si `AIM_ASSIST`, `ACTIVE_JITTER` ou `ACTIVE_PULL_DOWN`)
+## 3. Matériel aim (requis pour l’injection souris)
 
 Deux setups possibles (même protocole Serial `<dx,dy>\n` @ 115200, même Python).
+Le port COM est ouvert dès le lancement de `main.py` (aim / jitter / pull activables à chaud).
 
 ### A — Deux souris (recommandé si tu veux G HUB)
 
@@ -76,7 +77,9 @@ python scripts/arduino_serial_test.py --port COM5  # override
 
 | Module | Fichier | Rôle |
 |---|---|---|
-| Config | `core/config.py` | FOV, flags, seuils, COM Arduino, train |
+| Config | `core/config.py` | FOV, flags, seuils, COM Arduino, train (defaults) |
+| Settings runtime | `core/settings.py` | Store live + `settings.json` (autosave) |
+| Fenêtre paramètres | `core/settings_window.py` | UI tkinter (modif à chaud) |
 | Chemins dataset | `core/dataset_paths.py` | `data_mining_{NNN}` |
 | Chemins modèles | `core/model_paths.py` | `models/apex_{NNN}/` |
 | Capture | `core/capture.py` | FOV centré via dxcam (BGR) |
@@ -91,8 +94,9 @@ python scripts/arduino_serial_test.py --port COM5  # override
 ```
 Thread capture  → frame_queue (size=1)
 Thread detect   → YOLO + targeting + (mining) + debug_queue
-Thread mouse    → MouseController → Arduino <dx,dy>   [si AIM_ASSIST / ACTIVE_JITTER / ACTIVE_PULL_DOWN]
-Thread main     → fenêtre OpenCV                      [si DEBUG]
+Thread mouse    → MouseController → Arduino <dx,dy>   [COM toujours ouvert]
+Thread settings → fenêtre tkinter (autosave settings.json)
+Thread main     → fenêtre OpenCV / overlay            [si DEBUG / OVERLAY]
 ```
 
 Protocole Serial (PC → Leonardo) : `<dx,dy>\n` (ex. `<12,-34>\n`), baud `ARDUINO_BAUD` (115200).  
@@ -101,7 +105,32 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 
 ---
 
-## 5. Configuration (`core/config.py`)
+## 5. Configuration
+
+### Priorite
+
+1. `settings.json` (racine projet) — si présent et valide, surcharge les 12 paramètres runtime
+2. `core/config.py` — source de vérité / fallback (et tous les autres flags non exposés dans la fenêtre)
+
+La fenêtre de paramètres s’ouvre au lancement de `main.py`. Toute modification est appliquée **immédiatement** et sauvegardée automatiquement dans `settings.json` (debounce ~0.4 s). Bouton « Réinitialiser (config.py) » pour revenir aux defaults. Fermer la fenêtre arrête le programme proprement.
+
+### Paramètres modifiables à chaud
+
+| Flag | Effet |
+|---|---|
+| `CONF_THRESHOLD` | Seuil aim / targeting |
+| `AIM_ASSIST` | Active l’injection aim (COM déjà ouvert) |
+| `AIM_ASSIST_REQUIRE_LMB` | Aim si clic gauche (OU avec RMB si les deux True) |
+| `AIM_ASSIST_REQUIRE_RMB` | Aim si clic droit |
+| `AIM_ASSIST_REQUIRE_BOTH` | Aim seulement si LMB **et** RMB (prioritaire) |
+| `MAX_SMOOTHING` | Intensité max du lissage (mode assist) |
+| `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
+| `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
+| `ACTIVE_JITTER` | Tremblement sec X/Y sur LMB+RMB (via Arduino) |
+| `ACTIVE_PULL_DOWN` | Pull-down vertical sur LMB+RMB (via Arduino) |
+| `ENABLE_DATA_MINING` | Collecte async FP/FN (collector créé à la 1ʳᵉ activation) |
+
+### Autres flags (`core/config.py` uniquement)
 
 | Flag | Effet |
 |---|---|
@@ -109,15 +138,7 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `OVERLAY` | Overlay FOV in-game (click-through, F8 show/hide ; borderless Apex) |
 | `OVERLAY_SHOW_CROSSHAIR` | Croix au centre du FOV sur l'overlay |
 | `OVERLAY_SHOW_MAGNETIC_RADIUS` | Cercle `MAGNETIC_RADIUS` sur l'overlay |
-| `AIM_ASSIST` | Ouvre le COM et démarre le thread mouse |
-| `AIM_ASSIST_REQUIRE_LMB` | Aim si clic gauche (OU avec RMB si les deux True) |
-| `AIM_ASSIST_REQUIRE_RMB` | Aim si clic droit |
-| `AIM_ASSIST_REQUIRE_BOTH` | Aim seulement si LMB **et** RMB (prioritaire) |
 | `AIM_MODE` | `"lock"` (snap) ou `"assist"` (friction magnétique) |
-| `MAGNETIC_RADIUS` | Rayon d’attraction (mode assist) |
-| `AIM_POINT_X` / `AIM_POINT_Y` | Point visé dans la box (0–1 ; 0.5 = centre) |
-| `ACTIVE_JITTER` | Tremblement sec X/Y sur LMB+RMB (via Arduino) |
-| `ACTIVE_PULL_DOWN` | Pull-down vertical sur LMB+RMB (via Arduino) |
 | `NO_RECOIL_JITTER_MIN` / `NO_RECOIL_JITTER_MAX` | Amplitude du tremblement (px) |
 | `NO_RECOIL_TICK_S` | Période thread mouse fusionné (jitter / pull) |
 | `NO_RECOIL_DEBUG` | Logs périodiques LMB/RMB / deltas mouse |
@@ -125,8 +146,6 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `AIM_FIRE_PULL_PEAK_DURATION_S` | Durée du peak avant transition |
 | `AIM_FIRE_PULL_DECAY_S` | Transition linéaire peak → plateau |
 | `AIM_FIRE_PULL_DY_PER_S` | Pull plateau |
-| `ENABLE_DATA_MINING` | Collecte async FP/FN |
-| `CONF_THRESHOLD` | Seuil aim / targeting |
 | `DATA_MINING_CONF` | Plancher YOLO si mining ON (≤ aim ; une seule passe) |
 | `DATA_MINING_UNCERTAIN_*` | Bande FP suspect `[MIN, MAX)` — `MAX` = `CONF_THRESHOLD` |
 | `DATA_MINING_FN_MAX_CONF` | FN / confusion si meilleure conf ennemi < ce seuil + LMB+RMB |
@@ -140,7 +159,7 @@ Avec `mouse_fusion`, ces deltas sont fusionnés avec la souris sur le Host Shiel
 | `ARDUINO_SETTLE_S` | Pause après open (reset CDC Leonardo) |
 | `ARDUINO_OPEN_RETRIES` | Relances si COM verrouillé (Ctrl+C) |
 
-Defaults runtime = préférences machine : `ARDUINO_PORT=None` (auto) convient en général ; désactiver `AIM_ASSIST` / `DEBUG` si tu lances sans Leonardo.
+Defaults runtime = préférences machine : `ARDUINO_PORT=None` (auto) convient en général. Le port COM Arduino est ouvert dès le lancement (pour activer aim / jitter / pull à chaud sans relancer).
 
 ---
 
@@ -166,7 +185,7 @@ python scripts/train.py --list
 python scripts/export_engine.py             # TensorRT du dernier apex_*
 ```
 
-Ctrl+C → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester verrouillé ~1–3 s ; l’ouverture retente automatiquement.
+Ctrl+C ou fermeture de la fenêtre paramètres → `pipeline.stop()` ferme le Serial. Sous Windows le COM peut rester verrouillé ~1–3 s ; l’ouverture retente automatiquement.
 
 `AimPipeline` est à usage unique : après `stop()`, recrée une instance via `AimPipeline.create()`. Un crash dans un thread worker (capture / detect / mouse) arrête toute la pipeline, affiche le traceback, et `main.py` sort avec le code 1.
 

@@ -22,11 +22,10 @@ from core.config import (
     ARDUINO_PORT,
     ARDUINO_SETTLE_S,
     LOCK_SCALE,
-    MAGNETIC_RADIUS,
-    MAX_SMOOTHING,
     NO_RECOIL_JITTER_MAX,
     NO_RECOIL_JITTER_MIN,
 )
+from core.settings import SETTINGS
 
 
 class ArduinoMouse:
@@ -152,16 +151,12 @@ class MouseController:
         self,
         mode: str = AIM_MODE,
         lock_scale: float = LOCK_SCALE,
-        max_smoothing: float = MAX_SMOOTHING,
-        magnetic_radius: float = MAGNETIC_RADIUS,
         debug_moves: bool = AIM_DEBUG_MOVES,
     ):
         if mode not in ("lock", "assist"):
             raise ValueError(f"AIM_MODE invalide : {mode!r} (attendu 'lock' ou 'assist')")
         self.mode = mode
         self.lock_scale = lock_scale
-        self.max_smoothing = max_smoothing
-        self.magnetic_radius = magnetic_radius
         self.debug_moves = debug_moves
 
     def open(self) -> None:
@@ -197,10 +192,13 @@ class MouseController:
         return move_x, move_y
 
     def _assist_delta(self, dx: float, dy: float, distance: float) -> tuple[int, int]:
-        if distance > self.magnetic_radius:
+        magnetic_radius = float(SETTINGS.MAGNETIC_RADIUS)
+        if magnetic_radius <= 0 or distance > magnetic_radius:
             return 0, 0
 
-        dynamic_smooth = self.max_smoothing * (1 - (distance / self.magnetic_radius))
+        dynamic_smooth = float(SETTINGS.MAX_SMOOTHING) * (
+            1 - (distance / magnetic_radius)
+        )
         move_x = int(dx * dynamic_smooth)
         move_y = int(dy * dynamic_smooth)
         if move_x == 0 and move_y == 0:

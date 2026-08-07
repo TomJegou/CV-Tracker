@@ -1,6 +1,7 @@
 import math
 
-from core.config import AIM_POINT_X, AIM_POINT_Y, FOV_SIZE, TARGET_CLASS_ID
+from core.config import FOV_SIZE, TARGET_CLASS_ID
+from core.settings import SETTINGS
 
 
 class TargetingSystem:
@@ -8,13 +9,9 @@ class TargetingSystem:
         self,
         fov_size: int = FOV_SIZE,
         target_class_id: int = TARGET_CLASS_ID,
-        aim_point_x: float = AIM_POINT_X,
-        aim_point_y: float = AIM_POINT_Y,
     ):
         self._center = fov_size // 2
         self._target_class_id = target_class_id
-        self._aim_point_x = aim_point_x
-        self._aim_point_y = aim_point_y
 
     def get_best_target(self, detections: list[dict]) -> dict | None:
         enemies = [
@@ -23,12 +20,15 @@ class TargetingSystem:
         if not enemies:
             return None
 
+        aim_point_x = float(SETTINGS.AIM_POINT_X)
+        aim_point_y = float(SETTINGS.AIM_POINT_Y)
+
         scored: list[dict] = []
         for det in enemies:
             target = det.copy()
             # YOLO xywh = centre de box → offset vers le point configuré
-            aim_x = target["x"] + (self._aim_point_x - 0.5) * target["w"]
-            aim_y = target["y"] + (self._aim_point_y - 0.5) * target["h"]
+            aim_x = target["x"] + (aim_point_x - 0.5) * target["w"]
+            aim_y = target["y"] + (aim_point_y - 0.5) * target["h"]
             dx = aim_x - self._center
             dy = aim_y - self._center
             distance = math.sqrt(dx * dx + dy * dy)

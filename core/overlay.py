@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ctypes
+import threading
 import time
 from ctypes import wintypes
 
@@ -11,13 +12,13 @@ import numpy as np
 from core.config import (
     CLASS_NAMES,
     FOV_SIZE,
-    MAGNETIC_RADIUS,
     OVERLAY_SHOW_CROSSHAIR,
     OVERLAY_SHOW_MAGNETIC_RADIUS,
     TARGET_CLASS_ID,
 )
 from core.detector import DEBUG_CLASS_COLORS
 from core.pipeline import AimPipeline, DebugFrame
+from core.settings import SETTINGS
 
 # Fond chromakey (BGR) — rendu transparent via LWA_COLORKEY
 _CHROMA_BGR = (255, 0, 255)  # magenta
@@ -185,7 +186,7 @@ class FovOverlay:
                 1,
             )
         if OVERLAY_SHOW_MAGNETIC_RADIUS:
-            radius = int(round(MAGNETIC_RADIUS))
+            radius = int(round(float(SETTINGS.MAGNETIC_RADIUS)))
             if radius > 0:
                 cv2.circle(canvas, (c, c), radius, (0, 200, 255), 1)
 
@@ -252,13 +253,20 @@ class FovOverlay:
             )
 
 
-def run_overlay_loop(pipeline: AimPipeline, *, max_fps: float = 60.0) -> None:
-    """Boucle principale overlay — quitte sur Ctrl+C (pipeline stop) ou fermeture."""
+def run_overlay_loop(
+    pipeline: AimPipeline,
+    *,
+    max_fps: float = 60.0,
+    stop_event: threading.Event | None = None,
+) -> None:
+    """Boucle principale overlay — quitte sur Ctrl+C, fermeture paramètres, ou crash."""
     overlay = FovOverlay(pipeline.capture_region)
     overlay.open()
     frame_interval = 1.0 / max(1.0, max_fps)
     try:
-        while pipeline.is_running():
+        while pipeline.is_running() and (
+            stop_event is None or not stop_event.is_set()
+        ):
             loop_start = time.perf_counter()
             packet = pipeline.get_debug_frame(timeout=0.02)
             overlay.render(packet)

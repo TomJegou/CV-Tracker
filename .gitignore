@@ -11,6 +11,10 @@ env/
 # Ancien dossier de collecte (legacy)
 datasets/
 
+# Réglages runtime (fenêtre paramètres) — machine-local
+settings.json
+settings.json.tmp
+
 # Données lourdes
 data/images_extraites/**
 !data/images_extraites/.gitkeep
